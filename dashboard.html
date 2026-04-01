@@ -1,0 +1,1753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>SentinelAI — Credit Card Fraud Detection</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════
+   RESET & TOKENS
+═══════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#040c18; --bg2:#071525; --bg3:#0b1e35; --bg4:#0f2540;
+  --border:rgba(30,90,180,0.18); --border2:rgba(50,130,255,0.32);
+  --blue:#1a6ff5; --blue2:#4a9aff; --blue3:rgba(26,111,245,0.12);
+  --green:#00d49a; --green2:#30ffbe; --green3:rgba(0,212,154,0.1);
+  --red:#f02840; --red2:#ff5a6e; --red3:rgba(240,40,64,0.1);
+  --amber:#f0a020; --amber2:#ffc050; --amber3:rgba(240,160,32,0.1);
+  --t1:#ddeeff; --t2:#6090b8; --t3:#304060; --t4:#1a3050;
+  --fd:'Syne',sans-serif; --fm:'DM Mono',monospace;
+  --r:14px; --tr:.2s cubic-bezier(.4,0,.2,1);
+  --sb-w:228px; --hdr-h:60px;
+}
+html{height:100%;}
+body{
+  font-family:var(--fd);
+  background:var(--bg);
+  color:var(--t1);
+  min-height:100%;
+  display:flex;
+  overflow-x:hidden;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(26,111,245,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(26,111,245,.03) 1px,transparent 1px);
+  background-size:44px 44px;pointer-events:none;z-index:0;
+}
+body::after{
+  content:'';position:fixed;inset:0;
+  background:radial-gradient(ellipse 65% 55% at 62% 38%,rgba(26,111,245,.05) 0%,transparent 68%);
+  pointer-events:none;z-index:0;
+}
+
+/* ═══════════════════════════════════════════
+   SIDEBAR OVERLAY (mobile)
+═══════════════════════════════════════════ */
+.sb-overlay{
+  display:none;
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.6);
+  backdrop-filter:blur(3px);
+  z-index:99;
+  opacity:0;
+  transition:opacity var(--tr);
+}
+.sb-overlay.show{opacity:1;}
+
+/* ═══════════════════════════════════════════
+   SIDEBAR
+═══════════════════════════════════════════ */
+.sb{
+  width:var(--sb-w);
+  height:100vh;
+  background:var(--bg2);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  position:fixed;top:0;left:0;
+  z-index:100;
+  overflow:hidden;
+  transition:transform var(--tr);
+  flex-shrink:0;
+}
+.sb::after{
+  content:'';position:absolute;top:0;right:0;
+  width:1px;height:100%;
+  background:linear-gradient(180deg,transparent,var(--blue2) 40%,var(--green) 70%,transparent);
+  opacity:.25;
+}
+.sb-brand{padding:22px 20px 18px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.sb-logo{display:flex;align-items:center;gap:10px;margin-bottom:4px;}
+.sb-logo-icon{
+  width:34px;height:34px;
+  background:linear-gradient(135deg,var(--blue),var(--blue2));
+  border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:16px;flex-shrink:0;
+  box-shadow:0 0 18px rgba(26,111,245,.35),0 0 0 1px rgba(74,154,255,.28);
+}
+.sb-logo-name{font-size:15px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;}
+.sb-logo-sub{font-family:var(--fm);font-size:9px;color:var(--t3);letter-spacing:.18em;text-transform:uppercase;padding-left:44px;}
+
+.sb-status{
+  padding:8px 20px;display:flex;align-items:center;gap:8px;
+  background:var(--green3);border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.sb-dot{width:7px;height:7px;background:var(--green);border-radius:50%;animation:pdot 2.4s ease-out infinite;}
+@keyframes pdot{0%{box-shadow:0 0 0 0 rgba(0,212,154,.5);}70%{box-shadow:0 0 0 6px rgba(0,212,154,0);}100%{box-shadow:0 0 0 0 rgba(0,212,154,0);}}
+.sb-status-txt{font-family:var(--fm);font-size:10px;color:var(--green2);letter-spacing:.1em;}
+
+.sb-nav{flex:1;padding:16px 10px;overflow-y:auto;}
+.sb-nav::-webkit-scrollbar{width:3px;}
+.sb-nav::-webkit-scrollbar-thumb{background:var(--border);}
+.sb-grp{
+  font-family:var(--fm);font-size:9px;color:var(--t4);
+  letter-spacing:.2em;text-transform:uppercase;
+  padding:12px 10px 5px;
+}
+.sb-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:9px;cursor:pointer;
+  transition:all var(--tr);border:1px solid transparent;
+  margin-bottom:2px;color:var(--t2);font-size:13px;
+  font-weight:500;position:relative;user-select:none;
+}
+.sb-item:hover{background:var(--blue3);color:var(--t1);border-color:var(--border);}
+.sb-item.on{
+  background:linear-gradient(90deg,rgba(26,111,245,.2),rgba(26,111,245,.07));
+  color:var(--blue2);border-color:rgba(74,154,255,.28);
+}
+.sb-item.on::before{
+  content:'';position:absolute;left:-1px;top:22%;bottom:22%;
+  width:2.5px;background:var(--blue2);border-radius:0 2px 2px 0;
+  box-shadow:0 0 8px var(--blue2);
+}
+.sb-ic{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
+.sb-badge{
+  margin-left:auto;font-family:var(--fm);font-size:9px;
+  padding:2px 7px;border-radius:10px;
+  background:var(--red3);color:var(--red2);
+  border:1px solid rgba(240,40,64,.25);
+}
+.sb-foot{padding:12px;border-top:1px solid var(--border);flex-shrink:0;}
+.sb-info{background:rgba(26,111,245,.07);border:1px solid var(--border);border-radius:10px;padding:11px 13px;}
+.si-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.si-row:last-child{margin-bottom:0;}
+.si-label{font-family:var(--fm);font-size:9px;color:var(--t3);letter-spacing:.12em;text-transform:uppercase;}
+.si-val{font-family:var(--fm);font-size:11px;color:var(--blue2);font-weight:500;}
+.si-bar{height:2px;background:rgba(255,255,255,.05);border-radius:1px;margin-top:5px;overflow:hidden;}
+.si-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--blue2));animation:sifill 1.6s ease both;}
+@keyframes sifill{from{width:0;}}
+
+/* ═══════════════════════════════════════════
+   MAIN AREA
+═══════════════════════════════════════════ */
+.main{
+  flex:1;
+  display:flex;flex-direction:column;
+  min-height:100vh;
+  margin-left:var(--sb-w);
+  position:relative;z-index:1;
+  min-width:0;
+}
+
+/* ═══════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════ */
+.hdr{
+  height:var(--hdr-h);
+  background:rgba(7,21,37,.96);
+  backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;
+  padding:0 24px;gap:12px;
+  position:sticky;top:0;z-index:50;
+  flex-shrink:0;
+}
+.hdr-menu-btn{
+  display:none;
+  width:36px;height:36px;
+  background:transparent;border:1px solid var(--border);
+  border-radius:8px;cursor:pointer;
+  align-items:center;justify-content:center;
+  font-size:18px;color:var(--t2);
+  transition:all var(--tr);flex-shrink:0;
+}
+.hdr-menu-btn:hover{background:var(--blue3);color:var(--t1);border-color:var(--border2);}
+.hdr-titles{flex:1;min-width:0;}
+.hdr-title{font-size:15px;font-weight:700;letter-spacing:.01em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hdr-sub{font-family:var(--fm);font-size:10px;color:var(--t2);letter-spacing:.08em;text-transform:uppercase;margin-top:1px;}
+.hdr-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.hdr-clock{
+  font-family:var(--fm);font-size:12px;color:var(--t2);
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:8px;padding:6px 10px;letter-spacing:.06em;
+  white-space:nowrap;
+}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 14px;border-radius:8px;
+  font-family:var(--fd);font-size:12px;font-weight:600;
+  cursor:pointer;transition:all var(--tr);border:none;white-space:nowrap;
+}
+.btn-ghost{background:transparent;color:var(--t2);border:1px solid var(--border);}
+.btn-ghost:hover{background:var(--blue3);color:var(--t1);border-color:var(--border2);}
+.btn-primary{background:var(--blue);color:#fff;box-shadow:0 0 18px rgba(26,111,245,.3);}
+.btn-primary:hover{background:var(--blue2);box-shadow:0 0 28px rgba(26,111,245,.45);transform:translateY(-1px);}
+.btn-icon{padding:7px 10px;}
+
+/* ═══════════════════════════════════════════
+   CONTENT
+═══════════════════════════════════════════ */
+.content{
+  flex:1;
+  overflow-y:auto;
+  padding:22px 24px 40px;
+  display:flex;flex-direction:column;
+  gap:22px;
+}
+.content::-webkit-scrollbar{width:4px;}
+.content::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* SECTION HEADER */
+.sec-hdr{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;}
+.sec-title{font-size:14px;font-weight:700;letter-spacing:.01em;white-space:nowrap;}
+.sec-sub{font-family:var(--fm);font-size:10px;color:var(--t3);letter-spacing:.1em;white-space:nowrap;}
+.sec-line{flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent);}
+
+/* ═══════════════════════════════════════════
+   TICKER
+═══════════════════════════════════════════ */
+.ticker{
+  background:rgba(7,21,37,.85);border:1px solid var(--border);
+  border-radius:10px;padding:9px 16px;
+  display:flex;align-items:center;gap:10px;overflow:hidden;
+}
+.ticker-tag{
+  font-family:var(--fm);font-size:9px;color:var(--red2);
+  letter-spacing:.15em;text-transform:uppercase;
+  background:var(--red3);border:1px solid rgba(240,40,64,.22);
+  border-radius:5px;padding:3px 8px;white-space:nowrap;flex-shrink:0;
+}
+.ticker-scroll{flex:1;overflow:hidden;}
+.ticker-track{display:flex;gap:44px;white-space:nowrap;animation:tick 30s linear infinite;}
+@keyframes tick{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+.tick-item{font-family:var(--fm);font-size:11px;color:var(--t2);flex-shrink:0;}
+.tick-item em{color:var(--red2);font-style:normal;font-weight:500;}
+
+/* ═══════════════════════════════════════════
+   STAT CARDS
+═══════════════════════════════════════════ */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.card{
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:var(--r);padding:18px 18px 14px;
+  position:relative;overflow:hidden;
+  transition:all var(--tr);
+  box-shadow:0 4px 24px rgba(0,0,0,.4);
+  animation:cin .5s ease both;
+}
+.card:nth-child(1){animation-delay:.04s;}.card:nth-child(2){animation-delay:.09s;}
+.card:nth-child(3){animation-delay:.14s;}.card:nth-child(4){animation-delay:.19s;}
+@keyframes cin{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+.card:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.5),0 0 24px rgba(26,111,245,.08);}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:var(--r) var(--r) 0 0;}
+.card.bl::before{background:linear-gradient(90deg,var(--blue),var(--blue2));}
+.card.rd::before{background:linear-gradient(90deg,var(--red),var(--red2));}
+.card.am::before{background:linear-gradient(90deg,var(--amber),var(--amber2));}
+.card.gr::before{background:linear-gradient(90deg,var(--green),var(--green2));}
+.card-bg{position:absolute;bottom:-18px;right:-8px;font-size:72px;opacity:.036;pointer-events:none;user-select:none;}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;}
+.card-label{font-family:var(--fm);font-size:9.5px;color:var(--t2);letter-spacing:.12em;text-transform:uppercase;line-height:1.4;}
+.card-ico{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.card.bl .card-ico{background:rgba(26,111,245,.15);}
+.card.rd .card-ico{background:rgba(240,40,64,.12);}
+.card.am .card-ico{background:rgba(240,160,32,.12);}
+.card.gr .card-ico{background:rgba(0,212,154,.1);}
+.card-val{font-size:28px;font-weight:800;line-height:1;margin-bottom:5px;letter-spacing:-.02em;}
+.card.bl .card-val{color:var(--blue2);}
+.card.rd .card-val{color:var(--red2);}
+.card.am .card-val{color:var(--amber2);}
+.card.gr .card-val{color:var(--green2);}
+.card-delta{font-family:var(--fm);font-size:11px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
+.dup{color:var(--green);}.ddn{color:var(--red);}.dfl{color:var(--t3);}
+.card-bar{margin-top:12px;height:2px;background:rgba(255,255,255,.04);border-radius:1px;overflow:hidden;}
+.card.bl .card-fill{background:linear-gradient(90deg,var(--blue),var(--blue2));}
+.card.rd .card-fill{background:linear-gradient(90deg,var(--red),var(--red2));}
+.card.am .card-fill{background:linear-gradient(90deg,var(--amber),var(--amber2));}
+.card.gr .card-fill{background:linear-gradient(90deg,var(--green),var(--green2));}
+.card-fill{height:100%;border-radius:1px;animation:cin .8s ease both;}
+
+/* ═══════════════════════════════════════════
+   QUICK ACCESS CARDS
+═══════════════════════════════════════════ */
+.quick-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+.quick-card{
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:var(--r);padding:18px 20px;
+  display:flex;align-items:center;gap:14px;
+  cursor:pointer;transition:all var(--tr);
+  box-shadow:0 4px 24px rgba(0,0,0,.35);
+  animation:cin .55s ease both;
+}
+.quick-card:nth-child(1){animation-delay:.05s;}
+.quick-card:nth-child(2){animation-delay:.1s;}
+.quick-card:nth-child(3){animation-delay:.15s;}
+.quick-card:nth-child(4){animation-delay:.2s;}
+.quick-card:hover{
+  border-color:var(--border2);
+  transform:translateY(-2px);
+  box-shadow:0 8px 32px rgba(0,0,0,.5),0 0 20px rgba(26,111,245,.08);
+}
+.quick-card:hover .qc-arrow{transform:translateX(4px);color:var(--blue2);}
+.qc-icon{
+  width:42px;height:42px;border-radius:11px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;flex-shrink:0;
+}
+.rd-bg{background:rgba(240,40,64,.12);box-shadow:0 0 12px rgba(240,40,64,.08);}
+.bl-bg{background:rgba(26,111,245,.15);box-shadow:0 0 12px rgba(26,111,245,.1);}
+.am-bg{background:rgba(240,160,32,.12);box-shadow:0 0 12px rgba(240,160,32,.08);}
+.gr-bg{background:rgba(0,212,154,.1);box-shadow:0 0 12px rgba(0,212,154,.06);}
+.qc-body{flex:1;min-width:0;}
+.qc-title{font-size:13px;font-weight:700;margin-bottom:4px;color:var(--t1);}
+.qc-desc{font-family:var(--fm);font-size:10px;color:var(--t2);line-height:1.55;letter-spacing:.02em;}
+.qc-arrow{font-size:16px;color:var(--t3);transition:all var(--tr);flex-shrink:0;}
+
+@media(max-width:640px){
+  .quick-grid{grid-template-columns:1fr;}
+}
+
+/* ═══════════════════════════════════════════
+   ML FEATURE PANEL
+═══════════════════════════════════════════ */
+.ml-grid{
+  display:grid;
+  grid-template-columns:1fr 340px;
+  gap:14px;
+  align-items:start;
+}
+.ml-right-col{display:flex;flex-direction:column;gap:14px;}
+
+.ml-card{
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:18px 20px;
+  box-shadow:0 4px 24px rgba(0,0,0,.38);
+  transition:border-color var(--tr);
+  animation:cin .55s ease both;
+}
+.ml-card:hover{border-color:var(--border2);}
+
+.ml-card-head{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  margin-bottom:16px;gap:10px;
+}
+.ml-card-title{font-size:13px;font-weight:700;color:var(--t1);}
+.ml-card-sub{font-family:var(--fm);font-size:10px;color:var(--t3);letter-spacing:.07em;margin-top:2px;}
+
+.ml-badge{
+  font-family:var(--fm);font-size:9px;font-weight:500;
+  padding:3px 9px;border-radius:6px;letter-spacing:.08em;
+  white-space:nowrap;flex-shrink:0;
+}
+.ml-badge-blue{background:var(--blue3);color:var(--blue2);border:1px solid rgba(26,111,245,.25);}
+.ml-badge-green{background:var(--green3);color:var(--green2);border:1px solid rgba(0,212,154,.25);animation:blink2 2.5s ease-in-out infinite;}
+@keyframes blink2{0%,100%{opacity:1;}50%{opacity:.55;}}
+.ml-badge-amber{background:var(--amber3);color:var(--amber2);border:1px solid rgba(240,160,32,.25);}
+
+/* ── Feature Vector Grid ── */
+.feat-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:8px;
+}
+.feat-item{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:9px;
+  padding:10px 12px;
+  transition:all var(--tr);
+  cursor:default;
+  position:relative;
+  overflow:hidden;
+}
+.feat-item::before{
+  content:'';
+  position:absolute;bottom:0;left:0;right:0;
+  height:2px;
+  border-radius:0 0 9px 9px;
+  transition:opacity var(--tr);
+  opacity:0;
+}
+.feat-item:hover{border-color:var(--border2);transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,.3);}
+.feat-item:hover::before{opacity:1;}
+.feat-item.pos::before{background:linear-gradient(90deg,var(--green),var(--green2));}
+.feat-item.neg::before{background:linear-gradient(90deg,var(--red),var(--red2));}
+.feat-item.neu::before{background:linear-gradient(90deg,var(--blue),var(--blue2));}
+
+.feat-name{
+  font-family:var(--fm);font-size:9px;
+  color:var(--t3);letter-spacing:.12em;
+  text-transform:uppercase;margin-bottom:5px;
+}
+.feat-val{
+  font-family:var(--fm);font-size:13px;font-weight:500;
+  line-height:1;
+}
+.feat-item.pos .feat-val{color:var(--green2);}
+.feat-item.neg .feat-val{color:var(--red2);}
+.feat-item.neu .feat-val{color:var(--blue2);}
+
+.feat-bar{
+  height:2px;background:rgba(255,255,255,.04);
+  border-radius:1px;margin-top:6px;overflow:hidden;
+}
+.feat-bar-fill{
+  height:100%;border-radius:1px;
+  transition:width 1s ease;
+}
+.feat-item.pos .feat-bar-fill{background:var(--green);}
+.feat-item.neg .feat-bar-fill{background:var(--red);}
+.feat-item.neu .feat-bar-fill{background:var(--blue);}
+
+/* Amount & Time special row */
+.feat-special{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-bottom:8px;
+}
+.feat-special-item{
+  background:rgba(26,111,245,.07);
+  border:1px solid rgba(26,111,245,.2);
+  border-radius:9px;padding:10px 14px;
+}
+.fsi-label{font-family:var(--fm);font-size:9px;color:var(--t3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px;}
+.fsi-val{font-family:var(--fm);font-size:15px;font-weight:600;color:var(--blue2);}
+
+/* ── Score bars ── */
+.score-rows{display:flex;flex-direction:column;gap:11px;}
+.score-row{display:flex;align-items:center;gap:10px;}
+.score-label{
+  font-family:var(--fm);font-size:10px;color:var(--t2);
+  letter-spacing:.07em;width:72px;flex-shrink:0;
+}
+.score-bar-wrap{flex:1;display:flex;align-items:center;gap:8px;}
+.score-track{
+  flex:1;height:4px;
+  background:rgba(255,255,255,.05);
+  border-radius:2px;overflow:hidden;
+}
+.score-fill{
+  height:100%;border-radius:2px;
+  animation:sifill 1.4s ease both;
+}
+.score-val{font-family:var(--fm);font-size:11px;font-weight:500;width:46px;text-align:right;flex-shrink:0;}
+.blue-val{color:var(--blue2);}
+.green-val{color:var(--green2);}
+.amber-val{color:var(--amber2);}
+
+/* ── Confusion Matrix ── */
+.conf-wrap{display:flex;gap:8px;align-items:flex-start;}
+.conf-axis-y{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:space-between;
+  padding-top:24px;
+  gap:8px;
+}
+.conf-axis-y>span:first-child{
+  font-family:var(--fm);font-size:9px;color:var(--t3);
+  letter-spacing:.12em;text-transform:uppercase;
+  writing-mode:vertical-rl;transform:rotate(180deg);
+}
+.conf-axis-label{font-family:var(--fm);font-size:10px;color:var(--t2);letter-spacing:.06em;white-space:nowrap;}
+.conf-main{flex:1;}
+.conf-axis-x{
+  display:grid;grid-template-columns:1fr 1fr 1fr;
+  margin-bottom:6px;
+  text-align:center;
+}
+.conf-axis-title{
+  font-family:var(--fm);font-size:9px;color:var(--t3);
+  letter-spacing:.12em;text-transform:uppercase;
+  text-align:center;margin-top:6px;
+}
+.conf-cells{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:6px;
+}
+.conf-cell{
+  border-radius:10px;padding:12px 10px;
+  text-align:center;border:1px solid transparent;
+  transition:all var(--tr);cursor:default;
+}
+.conf-cell:hover{transform:scale(1.03);}
+.cc-val{font-family:var(--fm);font-size:18px;font-weight:700;line-height:1;margin-bottom:4px;}
+.cc-lbl{font-family:var(--fm);font-size:9px;letter-spacing:.08em;text-transform:uppercase;}
+
+.conf-cell.tp{background:rgba(0,212,154,.1);border-color:rgba(0,212,154,.22);}
+.conf-cell.tp .cc-val{color:var(--green2);}
+.conf-cell.tp .cc-lbl{color:var(--green);}
+.conf-cell.tn{background:rgba(26,111,245,.1);border-color:rgba(26,111,245,.2);}
+.conf-cell.tn .cc-val{color:var(--blue2);}
+.conf-cell.tn .cc-lbl{color:var(--blue);}
+.conf-cell.fp{background:rgba(240,160,32,.08);border-color:rgba(240,160,32,.2);}
+.conf-cell.fp .cc-val{color:var(--amber2);}
+.conf-cell.fp .cc-lbl{color:var(--amber);}
+.conf-cell.fn{background:rgba(240,40,64,.1);border-color:rgba(240,40,64,.2);}
+.conf-cell.fn .cc-val{color:var(--red2);}
+.conf-cell.fn .cc-lbl{color:var(--red);}
+
+/* responsive */
+@media(max-width:1200px){
+  .ml-grid{grid-template-columns:1fr;}
+  .ml-right-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .feat-grid{grid-template-columns:repeat(4,1fr);}
+}
+@media(max-width:900px){
+  .feat-grid{grid-template-columns:repeat(4,1fr);}
+}
+@media(max-width:768px){
+  .ml-right-col{grid-template-columns:1fr;}
+  .feat-grid{grid-template-columns:repeat(4,1fr);}
+}
+@media(max-width:580px){
+  .feat-grid{grid-template-columns:repeat(3,1fr);}
+}
+@media(max-width:420px){
+  .feat-grid{grid-template-columns:repeat(2,1fr);}
+}
+═══════════════════════════════════════════ */
+.notif-wrap{position:relative;}
+.notif-btn{position:relative;}
+.notif-dot{
+  position:absolute;top:4px;right:4px;
+  width:8px;height:8px;
+  background:var(--red);border:2px solid var(--bg2);
+  border-radius:50%;box-shadow:0 0 7px rgba(240,40,64,.6);
+  pointer-events:none;transition:all var(--tr);
+}
+.notif-dot.hidden{opacity:0;transform:scale(0);}
+.notif-panel{
+  position:absolute;top:calc(100% + 10px);right:0;
+  width:340px;background:var(--bg2);
+  border:1px solid var(--border2);border-radius:14px;
+  box-shadow:0 12px 48px rgba(0,0,0,.7);
+  z-index:300;overflow:hidden;
+  opacity:0;transform:translateY(-8px) scale(.97);
+  pointer-events:none;transition:opacity .22s ease,transform .22s ease;
+}
+.notif-panel.open{opacity:1;transform:translateY(0) scale(1);pointer-events:all;}
+.np-head{
+  padding:14px 16px 11px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(90deg,rgba(26,111,245,.07),transparent);
+}
+.np-head-left{display:flex;align-items:center;gap:10px;}
+.np-head-title{font-size:13px;font-weight:700;}
+.np-count-badge{
+  font-family:var(--fm);font-size:9px;font-weight:500;
+  padding:2px 7px;border-radius:10px;
+  background:var(--red3);color:var(--red2);border:1px solid rgba(240,40,64,.3);
+  transition:all .3s;
+}
+.np-count-badge.zero{background:var(--green3);color:var(--green2);border-color:rgba(0,212,154,.3);}
+.np-clear{font-family:var(--fm);font-size:10px;color:var(--t2);background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:6px;transition:all var(--tr);letter-spacing:.04em;}
+.np-clear:hover{background:var(--blue3);color:var(--blue2);}
+.np-tabs{display:flex;gap:4px;padding:9px 10px;border-bottom:1px solid var(--border);background:rgba(7,21,37,.5);}
+.np-tab{font-family:var(--fm);font-size:10px;padding:4px 10px;border-radius:7px;cursor:pointer;color:var(--t3);border:1px solid transparent;transition:all var(--tr);letter-spacing:.06em;user-select:none;}
+.np-tab:hover{color:var(--t2);background:var(--blue3);}
+.np-tab.active{background:var(--blue3);color:var(--blue2);border-color:rgba(26,111,245,.3);}
+.np-list{max-height:340px;overflow-y:auto;}
+.np-list::-webkit-scrollbar{width:3px;}
+.np-list::-webkit-scrollbar-thumb{background:var(--border);}
+.np-item{display:flex;align-items:flex-start;gap:11px;padding:12px 16px;border-bottom:1px solid rgba(30,90,180,.08);cursor:pointer;transition:background var(--tr);position:relative;}
+.np-item:last-child{border-bottom:none;}
+.np-item:hover{background:rgba(26,111,245,.05);}
+.np-item.unread{background:rgba(26,111,245,.03);}
+.np-item.unread::before{content:'';position:absolute;left:0;top:20%;bottom:20%;width:2px;background:var(--blue2);border-radius:0 2px 2px 0;}
+.np-ic{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:1px;}
+.ni-fraud{background:var(--red3);}.ni-review{background:var(--amber3);}.ni-safe{background:var(--green3);}.ni-system{background:var(--blue3);}
+.np-body{flex:1;min-width:0;}
+.np-item-title{font-size:12px;font-weight:600;color:var(--t1);margin-bottom:3px;line-height:1.3;}
+.np-item-desc{font-family:var(--fm);font-size:10px;color:var(--t2);line-height:1.5;letter-spacing:.02em;}
+.np-item-time{font-family:var(--fm);font-size:9px;color:var(--t3);margin-top:4px;letter-spacing:.06em;}
+.np-unread-dot{width:7px;height:7px;background:var(--blue2);border-radius:50%;flex-shrink:0;margin-top:5px;box-shadow:0 0 5px rgba(74,154,255,.5);}
+.np-sev{display:inline-block;font-family:var(--fm);font-size:9px;padding:2px 6px;border-radius:4px;margin-right:4px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;}
+.sev-high{background:var(--red3);color:var(--red2);}.sev-med{background:var(--amber3);color:var(--amber2);}.sev-low{background:var(--green3);color:var(--green2);}.sev-info{background:var(--blue3);color:var(--blue2);}
+.np-empty{padding:32px 18px;text-align:center;font-family:var(--fm);font-size:11px;color:var(--t3);letter-spacing:.06em;display:none;}
+.np-empty.show{display:block;}
+.np-empty-icon{font-size:26px;margin-bottom:8px;opacity:.4;}
+.np-foot{padding:10px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:rgba(7,21,37,.6);}
+.np-foot-txt{font-family:var(--fm);font-size:10px;color:var(--t3);letter-spacing:.06em;}
+.np-foot-link{font-family:var(--fm);font-size:10px;color:var(--blue2);cursor:pointer;letter-spacing:.06em;}
+.np-foot-link:hover{color:var(--t1);}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE — TABLET  ≤ 1024px
+═══════════════════════════════════════════ */
+@media(max-width:1024px){
+  :root{--sb-w:200px;}
+  .stats{grid-template-columns:repeat(2,1fr);}
+  .hdr-sub{display:none;}
+  .hdr-clock{display:none;}
+  .btn-ghost:not(.notif-btn):not(.csv-btn){display:none;}
+  .card-val{font-size:26px;}
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE — MOBILE  ≤ 768px
+═══════════════════════════════════════════ */
+@media(max-width:768px){
+  /* sidebar hidden off-screen, shown on toggle */
+  .sb{
+    transform:translateX(-100%);
+    box-shadow:none;
+  }
+  .sb.mobile-open{
+    transform:translateX(0);
+    box-shadow:4px 0 32px rgba(0,0,0,.6);
+  }
+  .sb-overlay{display:block;}
+
+  /* main fills full width */
+  .main{margin-left:0;}
+
+  /* show hamburger */
+  .hdr-menu-btn{display:flex;}
+  .hdr{padding:0 16px;gap:10px;}
+  .hdr-title{font-size:14px;}
+
+  /* content padding */
+  .content{padding:16px 14px 32px;gap:16px;}
+
+  /* cards 2-col on mid mobile */
+  .stats{grid-template-columns:repeat(2,1fr);gap:10px;}
+  .card{padding:14px 14px 12px;}
+  .card-val{font-size:24px;}
+  .card-label{font-size:9px;}
+
+  /* notification panel full-width on mobile */
+  .notif-panel{
+    position:fixed;
+    top:var(--hdr-h);
+    left:8px;right:8px;
+    width:auto;
+    border-radius:12px;
+    max-height:70vh;
+    overflow:hidden;
+    display:flex;flex-direction:column;
+  }
+  .np-list{flex:1;}
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE — SMALL MOBILE  ≤ 480px
+═══════════════════════════════════════════ */
+@media(max-width:480px){
+  .stats{grid-template-columns:1fr 1fr;}
+  .card-val{font-size:22px;}
+  .ticker-tag{display:none;}
+  .btn-primary span{display:none;}
+  .csv-btn span{display:none;}
+  /* Section sub text hide */
+  .sec-sub{display:none;}
+}
+
+/* ═══════════════════════════════════════════
+   DESKTOP ≥ 1280px — max content width
+═══════════════════════════════════════════ */
+@media(min-width:1280px){
+  .content{padding:24px 30px 44px;}
+  .card-val{font-size:30px;}
+}
+@media(min-width:1440px){
+  :root{--sb-w:240px;}
+  .stats{gap:16px;}
+}
+
+/* ═══════════════════════════════════════════
+   CSV IMPORT MODAL
+═══════════════════════════════════════════ */
+.csv-btn{
+  background:rgba(0,212,154,.1);
+  color:var(--green2);
+  border:1px solid rgba(0,212,154,.28);
+}
+.csv-btn:hover{
+  background:rgba(0,212,154,.18);
+  border-color:rgba(0,212,154,.5);
+  box-shadow:0 0 14px rgba(0,212,154,.15);
+}
+
+/* Modal backdrop */
+.modal-backdrop{
+  position:fixed;inset:0;
+  background:rgba(2,8,20,.82);
+  backdrop-filter:blur(6px);
+  z-index:500;
+  display:flex;align-items:center;justify-content:center;
+  padding:16px;
+  opacity:0;pointer-events:none;
+  transition:opacity .25s ease;
+}
+.modal-backdrop.open{opacity:1;pointer-events:all;}
+
+/* Modal box */
+.csv-modal{
+  background:var(--bg2);
+  border:1px solid var(--border2);
+  border-radius:18px;
+  width:100%;max-width:680px;
+  max-height:90vh;
+  display:flex;flex-direction:column;
+  box-shadow:0 24px 80px rgba(0,0,0,.75);
+  transform:translateY(16px) scale(.98);
+  transition:transform .28s cubic-bezier(.34,1.2,.64,1);
+  overflow:hidden;
+}
+.modal-backdrop.open .csv-modal{transform:translateY(0) scale(1);}
+
+/* Modal header */
+.cm-head{
+  padding:18px 22px 14px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(90deg,rgba(0,212,154,.06),transparent);
+  flex-shrink:0;
+}
+.cm-head-left{display:flex;align-items:center;gap:10px;}
+.cm-head-icon{
+  width:34px;height:34px;border-radius:9px;
+  background:rgba(0,212,154,.12);
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;
+  border:1px solid rgba(0,212,154,.2);
+}
+.cm-head-title{font-size:14px;font-weight:700;}
+.cm-head-sub{font-family:var(--fm);font-size:10px;color:var(--t3);letter-spacing:.08em;margin-top:1px;}
+.cm-close{
+  width:32px;height:32px;border-radius:8px;
+  background:transparent;border:1px solid var(--border);
+  color:var(--t2);cursor:pointer;font-size:16px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all var(--tr);
+}
+.cm-close:hover{background:var(--red3);border-color:rgba(240,40,64,.3);color:var(--red2);}
+
+/* Modal body */
+.cm-body{flex:1;overflow-y:auto;padding:20px 22px;display:flex;flex-direction:column;gap:18px;}
+.cm-body::-webkit-scrollbar{width:3px;}
+.cm-body::-webkit-scrollbar-thumb{background:var(--border);}
+
+/* Drop zone */
+.drop-zone{
+  border:2px dashed var(--border2);
+  border-radius:12px;
+  padding:32px 20px;
+  text-align:center;
+  cursor:pointer;
+  transition:all var(--tr);
+  background:rgba(26,111,245,.03);
+  position:relative;
+}
+.drop-zone:hover,.drop-zone.drag-over{
+  border-color:var(--green);
+  background:rgba(0,212,154,.05);
+  box-shadow:0 0 24px rgba(0,212,154,.08) inset;
+}
+.drop-zone-icon{font-size:36px;margin-bottom:10px;opacity:.6;}
+.drop-zone-title{font-size:14px;font-weight:700;margin-bottom:4px;}
+.drop-zone-sub{font-family:var(--fm);font-size:11px;color:var(--t2);letter-spacing:.04em;line-height:1.7;}
+.drop-zone-sub span{color:var(--green2);}
+.drop-zone input[type=file]{display:none;}
+
+/* Format hint */
+.fmt-hint{
+  background:rgba(26,111,245,.05);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:13px 16px;
+}
+.fmt-hint-title{
+  font-family:var(--fm);font-size:10px;color:var(--t3);
+  letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px;
+}
+.fmt-cols{display:flex;flex-wrap:wrap;gap:6px;}
+.fmt-col{
+  font-family:var(--fm);font-size:10px;
+  padding:3px 9px;border-radius:6px;
+  background:var(--bg3);border:1px solid var(--border);
+  color:var(--t2);
+}
+.fmt-col.req{color:var(--blue2);border-color:rgba(26,111,245,.3);}
+
+/* Progress bar */
+.parse-progress{display:none;}
+.parse-progress.show{display:block;}
+.pp-label{font-family:var(--fm);font-size:10px;color:var(--t2);letter-spacing:.06em;margin-bottom:6px;display:flex;justify-content:space-between;}
+.pp-track{height:4px;background:rgba(255,255,255,.05);border-radius:2px;overflow:hidden;}
+.pp-fill{
+  height:100%;border-radius:2px;width:0%;
+  background:linear-gradient(90deg,var(--green),var(--green2));
+  transition:width .1s linear;
+}
+
+/* Summary stats row */
+.import-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.istat{
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:10px;padding:12px 14px;text-align:center;
+}
+.istat-val{font-size:22px;font-weight:800;line-height:1;margin-bottom:4px;}
+.istat-lbl{font-family:var(--fm);font-size:9px;color:var(--t3);letter-spacing:.12em;text-transform:uppercase;}
+
+/* Preview table */
+.preview-wrap{
+  border:1px solid var(--border);border-radius:10px;
+  overflow:hidden;display:none;
+}
+.preview-wrap.show{display:block;}
+.preview-hdr{
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(26,111,245,.04);
+}
+.preview-title{font-size:12px;font-weight:700;}
+.preview-badge{font-family:var(--fm);font-size:9px;color:var(--green2);background:var(--green3);border:1px solid rgba(0,212,154,.2);padding:2px 7px;border-radius:5px;}
+.preview-scroll{overflow-x:auto;max-height:220px;overflow-y:auto;}
+.preview-scroll::-webkit-scrollbar{height:3px;width:3px;}
+.preview-scroll::-webkit-scrollbar-thumb{background:var(--border);}
+.preview-table{width:100%;border-collapse:collapse;min-width:500px;}
+.preview-table th{padding:8px 14px;text-align:left;font-family:var(--fm);font-size:9px;color:var(--t3);letter-spacing:.14em;text-transform:uppercase;background:rgba(26,111,245,.04);border-bottom:1px solid var(--border);white-space:nowrap;}
+.preview-table td{padding:9px 14px;font-family:var(--fm);font-size:11px;color:var(--t2);border-bottom:1px solid rgba(30,90,180,.07);white-space:nowrap;}
+.preview-table tr:last-child td{border-bottom:none;}
+.preview-table tr:hover td{background:rgba(26,111,245,.04);color:var(--t1);}
+
+/* Modal footer */
+.cm-foot{
+  padding:14px 22px;border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:rgba(7,21,37,.7);flex-shrink:0;flex-wrap:wrap;
+}
+.cm-foot-info{font-family:var(--fm);font-size:10px;color:var(--t3);letter-spacing:.06em;}
+.cm-foot-actions{display:flex;gap:8px;}
+.btn-cancel{background:transparent;color:var(--t2);border:1px solid var(--border);font-family:var(--fd);font-size:12px;font-weight:600;padding:8px 16px;border-radius:8px;cursor:pointer;transition:all var(--tr);}
+.btn-cancel:hover{background:var(--red3);color:var(--red2);border-color:rgba(240,40,64,.3);}
+.btn-import-confirm{
+  background:var(--green);color:#040c18;
+  border:none;font-family:var(--fd);font-size:12px;font-weight:700;
+  padding:8px 18px;border-radius:8px;cursor:pointer;
+  transition:all var(--tr);
+  box-shadow:0 0 16px rgba(0,212,154,.25);
+  display:flex;align-items:center;gap:6px;
+}
+.btn-import-confirm:hover{background:var(--green2);box-shadow:0 0 24px rgba(0,212,154,.4);transform:translateY(-1px);}
+.btn-import-confirm:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+
+/* Toast notification */
+.toast{
+  position:fixed;bottom:24px;right:24px;
+  background:var(--bg3);border:1px solid rgba(0,212,154,.35);
+  border-radius:12px;padding:13px 18px;
+  display:flex;align-items:center;gap:10px;
+  z-index:600;min-width:260px;max-width:340px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);
+  transform:translateY(16px);opacity:0;
+  transition:all .3s cubic-bezier(.34,1.2,.64,1);
+  pointer-events:none;
+}
+.toast.show{transform:translateY(0);opacity:1;pointer-events:all;}
+.toast-icon{font-size:18px;flex-shrink:0;}
+.toast-msg{font-family:var(--fm);font-size:11px;color:var(--t1);line-height:1.5;letter-spacing:.02em;}
+.toast-msg strong{color:var(--green2);display:block;margin-bottom:2px;}
+
+/* Responsive modal */
+@media(max-width:640px){
+  .csv-modal{border-radius:14px;}
+  .cm-head,.cm-body,.cm-foot{padding-left:16px;padding-right:16px;}
+  .import-stats{grid-template-columns:repeat(3,1fr);}
+  .istat-val{font-size:18px;}
+}
+</style>
+</head>
+<body>
+
+<!-- Mobile sidebar overlay -->
+<div class="sb-overlay" id="sbOverlay" onclick="closeSidebar()"></div>
+
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="sb" id="sidebar">
+  <div class="sb-brand">
+    <div class="sb-logo">
+      <div class="sb-logo-icon">⬡</div>
+      <span class="sb-logo-name">SentinelAI</span>
+    </div>
+    <div class="sb-logo-sub">Fraud Detection · v3.1</div>
+  </div>
+
+  <div class="sb-status">
+    <div class="sb-dot"></div>
+    <span class="sb-status-txt">SYSTEM ACTIVE · 99.87% ACC</span>
+  </div>
+
+  <nav class="sb-nav">
+    <div class="sb-grp">Main</div>
+    <div class="sb-item on" onclick="setNav(this)">
+      <span class="sb-ic">🏠</span> Home
+    </div>
+
+    <div class="sb-grp">Detection</div>
+    <div class="sb-item" onclick="setNav(this)">
+      <span class="sb-ic">🔍</span> Fraud Detection
+      <span class="sb-badge">7 NEW</span>
+    </div>
+
+    <div class="sb-grp">Insights</div>
+    <div class="sb-item" onclick="setNav(this)">
+      <span class="sb-ic">📊</span> Analytics
+    </div>
+    <div class="sb-item" onclick="setNav(this)">
+      <span class="sb-ic">🗒</span> Transaction History
+    </div>
+
+    <div class="sb-grp">System</div>
+    <div class="sb-item" onclick="setNav(this)">
+      <span class="sb-ic">ℹ</span> About
+    </div>
+  </nav>
+
+  <div class="sb-foot">
+    <div class="sb-info">
+      <div class="si-row"><span class="si-label">Accuracy</span><span class="si-val">99.87%</span></div>
+      <div class="si-row"><span class="si-label">Precision</span><span class="si-val">94.2%</span></div>
+      <div class="si-row"><span class="si-label">Recall</span><span class="si-val">91.6%</span></div>
+      <div class="si-bar"><div class="si-fill" style="width:94%"></div></div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<div class="main">
+
+  <!-- HEADER -->
+  <header class="hdr">
+    <!-- Hamburger (mobile only) -->
+    <button class="hdr-menu-btn" id="menuBtn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
+
+    <div class="hdr-titles">
+      <div class="hdr-title">Credit Card Fraud Detection</div>
+      <div class="hdr-sub">AI-Powered Fraud Monitoring · Real-Time</div>
+    </div>
+
+    <div class="hdr-right">
+      <div class="hdr-clock" id="clk">00:00:00</div>
+      <button class="btn btn-ghost">⬇ Export</button>
+      <button class="btn csv-btn" onclick="openCsvModal()" title="Import CSV file">
+        📂 <span>Import CSV</span>
+      </button>
+
+      <!-- Notification button -->
+      <div class="notif-wrap">
+        <button class="btn btn-ghost btn-icon notif-btn" id="notifBtn" onclick="toggleNotif(event)" aria-label="Notifications">
+          🔔<span class="notif-dot" id="notifDot"></span>
+        </button>
+        <div class="notif-panel" id="notifPanel">
+          <div class="np-head">
+            <div class="np-head-left">
+              <span class="np-head-title">Notifications</span>
+              <span class="np-count-badge" id="npBadge">7 unread</span>
+            </div>
+            <button class="np-clear" onclick="clearAll()">Mark all read</button>
+          </div>
+          <div class="np-tabs">
+            <div class="np-tab active" onclick="filterNotif('all',this)">All</div>
+            <div class="np-tab" onclick="filterNotif('fraud',this)">Fraud</div>
+            <div class="np-tab" onclick="filterNotif('review',this)">Review</div>
+            <div class="np-tab" onclick="filterNotif('system',this)">System</div>
+          </div>
+          <div class="np-list" id="npList"></div>
+          <div class="np-empty" id="npEmpty">
+            <div class="np-empty-icon">🔕</div>
+            No notifications in this category
+          </div>
+          <div class="np-foot">
+            <span class="np-foot-txt" id="npFootCount">7 of 7 shown</span>
+            <span class="np-foot-link">View all alerts →</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary">⚡ <span>Run Scan</span></button>
+    </div>
+  </header>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- TICKER -->
+    <div class="ticker">
+      <div class="ticker-tag">⚠ LIVE ALERTS</div>
+      <div class="ticker-scroll">
+        <div class="ticker-track" id="tickerTrack"></div>
+      </div>
+    </div>
+
+    <!-- STAT CARDS -->
+    <div>
+      <div class="sec-hdr">
+        <span class="sec-title">Overview</span>
+        <span class="sec-sub">Last 30 days</span>
+        <div class="sec-line"></div>
+      </div>
+      <div class="stats">
+        <div class="card bl">
+          <div class="card-bg">💳</div>
+          <div class="card-top">
+            <div class="card-label">Total<br>Transactions</div>
+            <div class="card-ico">💳</div>
+          </div>
+          <div class="card-val">284,807</div>
+          <div class="card-delta"><span class="dup">↑ +2,341</span><span class="dfl">today</span></div>
+          <div class="card-bar"><div class="card-fill" style="width:78%"></div></div>
+        </div>
+
+        <div class="card rd">
+          <div class="card-bg">⚠</div>
+          <div class="card-top">
+            <div class="card-label">Fraud<br>Transactions</div>
+            <div class="card-ico">⚠</div>
+          </div>
+          <div class="card-val">492</div>
+          <div class="card-delta"><span class="ddn">↑ +7</span><span class="dfl">last hour</span></div>
+          <div class="card-bar"><div class="card-fill" style="width:30%"></div></div>
+        </div>
+
+        <div class="card am">
+          <div class="card-bg">%</div>
+          <div class="card-top">
+            <div class="card-label">Fraud<br>Percentage</div>
+            <div class="card-ico">📉</div>
+          </div>
+          <div class="card-val">0.17%</div>
+          <div class="card-delta"><span class="dup">↓ −0.02%</span><span class="dfl">vs avg</span></div>
+          <div class="card-bar"><div class="card-fill" style="width:17%"></div></div>
+        </div>
+
+        <div class="card gr">
+          <div class="card-bg">🔔</div>
+          <div class="card-top">
+            <div class="card-label">Active<br>Alerts</div>
+            <div class="card-ico">🔔</div>
+          </div>
+          <div class="card-val">23</div>
+          <div class="card-delta"><span class="dfl">8 pending review</span></div>
+          <div class="card-bar"><div class="card-fill" style="width:46%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUICK ACCESS -->
+    <div>
+      <div class="sec-hdr">
+        <span class="sec-title">Quick Access</span>
+        <span class="sec-sub">Navigate to sections</span>
+        <div class="sec-line"></div>
+      </div>
+      <div class="quick-grid">
+
+        <div class="quick-card" onclick="document.querySelectorAll('.sb-item')[1].click()">
+          <div class="qc-icon rd-bg">🔍</div>
+          <div class="qc-body">
+            <div class="qc-title">Fraud Detection</div>
+            <div class="qc-desc">Scan transactions and detect fraudulent activity in real time</div>
+          </div>
+          <div class="qc-arrow">→</div>
+        </div>
+
+        <div class="quick-card" onclick="document.querySelectorAll('.sb-item')[2].click()">
+          <div class="qc-icon bl-bg">📊</div>
+          <div class="qc-body">
+            <div class="qc-title">Analytics Dashboard</div>
+            <div class="qc-desc">Charts, trends and visual breakdown of fraud patterns</div>
+          </div>
+          <div class="qc-arrow">→</div>
+        </div>
+
+        <div class="quick-card" onclick="document.querySelectorAll('.sb-item')[3].click()">
+          <div class="qc-icon am-bg">🗒</div>
+          <div class="qc-body">
+            <div class="qc-title">Transaction History</div>
+            <div class="qc-desc">Browse, search and filter all past transaction records</div>
+          </div>
+          <div class="qc-arrow">→</div>
+        </div>
+
+        <div class="quick-card" onclick="document.querySelectorAll('.sb-item')[4].click()">
+          <div class="qc-icon gr-bg">ℹ</div>
+          <div class="qc-body">
+            <div class="qc-title">About the System</div>
+            <div class="qc-desc">Model details, dataset info and technical documentation</div>
+          </div>
+          <div class="qc-arrow">→</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ML FEATURES & MODEL METRICS -->
+    <div>
+      <div class="sec-hdr">
+        <span class="sec-title">Model Feature Analysis</span>
+        <span class="sec-sub">PCA Components · Latest Transaction</span>
+        <div class="sec-line"></div>
+      </div>
+
+      <div class="ml-grid">
+
+        <!-- Left: Feature vector panel V1–V28 -->
+        <div class="ml-card feat-card">
+          <div class="ml-card-head">
+            <div>
+              <div class="ml-card-title">PCA Feature Vectors</div>
+              <div class="ml-card-sub">V1 – V28 · Anonymized components</div>
+            </div>
+            <span class="ml-badge ml-badge-blue">28 FEATURES</span>
+          </div>
+          <div class="feat-grid" id="featGrid"></div>
+        </div>
+
+        <!-- Right: model metrics stack -->
+        <div class="ml-right-col">
+
+          <!-- R² + core scores -->
+          <div class="ml-card score-card">
+            <div class="ml-card-head">
+              <div>
+                <div class="ml-card-title">Model Performance</div>
+                <div class="ml-card-sub">Evaluation metrics · Test set</div>
+              </div>
+              <span class="ml-badge ml-badge-green">LIVE</span>
+            </div>
+            <div class="score-rows">
+              <div class="score-row">
+                <span class="score-label">R² Score</span>
+                <div class="score-bar-wrap">
+                  <div class="score-track"><div class="score-fill" style="width:94.7%;background:linear-gradient(90deg,var(--blue),var(--blue2))"></div></div>
+                  <span class="score-val blue-val">0.947</span>
+                </div>
+              </div>
+              <div class="score-row">
+                <span class="score-label">Accuracy</span>
+                <div class="score-bar-wrap">
+                  <div class="score-track"><div class="score-fill" style="width:99.87%;background:linear-gradient(90deg,var(--green),var(--green2))"></div></div>
+                  <span class="score-val green-val">99.87%</span>
+                </div>
+              </div>
+              <div class="score-row">
+                <span class="score-label">Precision</span>
+                <div class="score-bar-wrap">
+                  <div class="score-track"><div class="score-fill" style="width:94.2%;background:linear-gradient(90deg,var(--blue),var(--blue2))"></div></div>
+                  <span class="score-val blue-val">94.2%</span>
+                </div>
+              </div>
+              <div class="score-row">
+                <span class="score-label">Recall</span>
+                <div class="score-bar-wrap">
+                  <div class="score-track"><div class="score-fill" style="width:91.6%;background:linear-gradient(90deg,var(--amber),var(--amber2))"></div></div>
+                  <span class="score-val amber-val">91.6%</span>
+                </div>
+              </div>
+              <div class="score-row">
+                <span class="score-label">F1 Score</span>
+                <div class="score-bar-wrap">
+                  <div class="score-track"><div class="score-fill" style="width:92.9%;background:linear-gradient(90deg,var(--blue),var(--blue2))"></div></div>
+                  <span class="score-val blue-val">92.9%</span>
+                </div>
+              </div>
+              <div class="score-row">
+                <span class="score-label">AUC-ROC</span>
+                <div class="score-bar-wrap">
+                  <div class="score-track"><div class="score-fill" style="width:98.74%;background:linear-gradient(90deg,var(--green),var(--green2))"></div></div>
+                  <span class="score-val green-val">0.9874</span>
+                </div>
+              </div>
+              <div class="score-row">
+                <span class="score-label">MCC</span>
+                <div class="score-bar-wrap">
+                  <div class="score-track"><div class="score-fill" style="width:87.3%;background:linear-gradient(90deg,var(--amber),var(--amber2))"></div></div>
+                  <span class="score-val amber-val">0.873</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Confusion matrix -->
+          <div class="ml-card conf-card">
+            <div class="ml-card-head">
+              <div>
+                <div class="ml-card-title">Confusion Matrix</div>
+                <div class="ml-card-sub">Predicted vs Actual</div>
+              </div>
+              <span class="ml-badge ml-badge-amber">TEST SET</span>
+            </div>
+            <div class="conf-wrap">
+              <div class="conf-axis-y">
+                <span>Actual</span>
+                <span class="conf-axis-label">Fraud</span>
+                <span class="conf-axis-label">Normal</span>
+              </div>
+              <div class="conf-main">
+                <div class="conf-axis-x">
+                  <span></span>
+                  <span class="conf-axis-label">Fraud</span>
+                  <span class="conf-axis-label">Normal</span>
+                </div>
+                <div class="conf-cells">
+                  <div class="conf-cell tp">
+                    <div class="cc-val">451</div>
+                    <div class="cc-lbl">True Pos</div>
+                  </div>
+                  <div class="conf-cell fn">
+                    <div class="cc-val">41</div>
+                    <div class="cc-lbl">False Neg</div>
+                  </div>
+                  <div class="conf-cell fp">
+                    <div class="cc-val">27</div>
+                    <div class="cc-lbl">False Pos</div>
+                  </div>
+                  <div class="conf-cell tn">
+                    <div class="cc-val">56,962</div>
+                    <div class="cc-lbl">True Neg</div>
+                  </div>
+                </div>
+                <div class="conf-axis-title">Predicted</div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /ml-right-col -->
+      </div><!-- /ml-grid -->
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+// ── CLOCK ──────────────────────────────────────────────────────
+(function tick(){
+  document.getElementById('clk').textContent =
+    new Date().toLocaleTimeString('en-GB',{hour12:false});
+  setTimeout(tick,1000);
+})();
+
+// ── SIDEBAR TOGGLE (mobile) ────────────────────────────────────
+function toggleSidebar(){
+  const sb  = document.getElementById('sidebar');
+  const ov  = document.getElementById('sbOverlay');
+  const open = sb.classList.toggle('mobile-open');
+  ov.classList.toggle('show', open);
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('sbOverlay').classList.remove('show');
+}
+
+// ── NAV ────────────────────────────────────────────────────────
+function setNav(el){
+  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('on'));
+  el.classList.add('on');
+  // Close sidebar on mobile after nav tap
+  if(window.innerWidth <= 768) closeSidebar();
+}
+
+// ── TICKER ─────────────────────────────────────────────────────
+(function(){
+  const a=[
+    'TXN-291847 · $149.62 · <em>FRAUD DETECTED</em> · Risk 91%',
+    'TXN-291845 · $378.66 · <em>FRAUD DETECTED</em> · Risk 87%',
+    'TXN-291841 · $529.00 · <em>FRAUD DETECTED</em> · Risk 78%',
+    'TXN-291838 · $4,200.00 · <em>HIGH RISK FRAUD</em> · Risk 96%',
+    'TXN-291835 · $856.00 · <em>FRAUD DETECTED</em> · Risk 83%',
+    'TXN-291842 · $1.00 · <em>REVIEW REQUIRED</em> · Risk 55%',
+    'TXN-291839 · $239.93 · <em>REVIEW REQUIRED</em> · Risk 62%',
+  ];
+  const el=document.getElementById('tickerTrack');
+  el.innerHTML=[...a,...a].map(x=>`<div class="tick-item">⚠ ${x}</div>`).join('');
+})();
+
+// ── ML FEATURE VECTORS (V1–V28) ───────────────────────────────
+(function renderFeatures(){
+  // Latest flagged transaction feature values (realistic PCA components)
+  const features = [
+    {name:'V1',  val:-1.3598, desc:'PCA 1'},
+    {name:'V2',  val:-0.0728, desc:'PCA 2'},
+    {name:'V3',  val: 2.5363, desc:'PCA 3'},
+    {name:'V4',  val: 1.3782, desc:'PCA 4'},
+    {name:'V5',  val:-0.3382, desc:'PCA 5'},
+    {name:'V6',  val: 0.4624, desc:'PCA 6'},
+    {name:'V7',  val: 0.2396, desc:'PCA 7'},
+    {name:'V8',  val: 0.0987, desc:'PCA 8'},
+    {name:'V9',  val: 0.3638, desc:'PCA 9'},
+    {name:'V10', val: 0.0908, desc:'PCA 10'},
+    {name:'V11', val:-0.5516, desc:'PCA 11'},
+    {name:'V12', val:-0.6178, desc:'PCA 12'},
+    {name:'V13', val:-0.9913, desc:'PCA 13'},
+    {name:'V14', val:-0.3112, desc:'PCA 14'},
+    {name:'V15', val: 1.4682, desc:'PCA 15'},
+    {name:'V16', val:-0.4704, desc:'PCA 16'},
+    {name:'V17', val: 0.2076, desc:'PCA 17'},
+    {name:'V18', val: 0.0258, desc:'PCA 18'},
+    {name:'V19', val: 0.4039, desc:'PCA 19'},
+    {name:'V20', val: 0.2514, desc:'PCA 20'},
+    {name:'V21', val:-0.0183, desc:'PCA 21'},
+    {name:'V22', val: 0.2779, desc:'PCA 22'},
+    {name:'V23', val:-0.1105, desc:'PCA 23'},
+    {name:'V24', val: 0.0669, desc:'PCA 24'},
+    {name:'V25', val: 0.1285, desc:'PCA 25'},
+    {name:'V26', val:-0.1891, desc:'PCA 26'},
+    {name:'V27', val: 0.1336, desc:'PCA 27'},
+    {name:'V28', val:-0.0210, desc:'PCA 28'},
+  ];
+
+  const grid = document.getElementById('featGrid');
+
+  // Amount + Time special header
+  const specialDiv = document.createElement('div');
+  specialDiv.className = 'feat-special';
+  specialDiv.innerHTML = `
+    <div class="feat-special-item">
+      <div class="fsi-label">Amount</div>
+      <div class="fsi-val">$149.62</div>
+    </div>
+    <div class="feat-special-item">
+      <div class="fsi-label">Time (sec)</div>
+      <div class="fsi-val">406</div>
+    </div>`;
+  grid.insertAdjacentElement('beforebegin', specialDiv);
+
+  // Max absolute value for scaling bars
+  const maxAbs = Math.max(...features.map(f => Math.abs(f.val)));
+
+  features.forEach(f => {
+    const cls = f.val > 0.1 ? 'pos' : f.val < -0.1 ? 'neg' : 'neu';
+    const barW = Math.round((Math.abs(f.val) / maxAbs) * 100);
+    const display = f.val.toFixed(4);
+
+    const item = document.createElement('div');
+    item.className = `feat-item ${cls}`;
+    item.title = `${f.name}: ${f.val} (${f.desc})`;
+    item.innerHTML = `
+      <div class="feat-name">${f.name}</div>
+      <div class="feat-val">${display}</div>
+      <div class="feat-bar"><div class="feat-bar-fill" style="width:${barW}%"></div></div>`;
+    grid.appendChild(item);
+  });
+})();
+
+// ── NOTIFICATIONS ──────────────────────────────────────────────
+const notifData=[
+  {id:1,type:'fraud', unread:true, icon:'🚨',iconCls:'ni-fraud', sev:'high',title:'High-Risk Fraud Detected',    desc:'TXN-291838 · $4,200.00 · Risk 96% · Automatic block triggered.',       time:'2 min ago'},
+  {id:2,type:'fraud', unread:true, icon:'⚠️',iconCls:'ni-fraud', sev:'high',title:'Fraud Transaction Flagged',   desc:'TXN-291847 · $149.62 · Unusual pattern — V1 = −3.04.',                  time:'8 min ago'},
+  {id:3,type:'fraud', unread:true, icon:'⚠️',iconCls:'ni-fraud', sev:'high',title:'Fraud Transaction Flagged',   desc:'TXN-291845 · $378.66 · Matches known fraud cluster #47.',               time:'9 min ago'},
+  {id:4,type:'review',unread:true, icon:'🔎',iconCls:'ni-review',sev:'med', title:'Transaction Needs Review',    desc:'TXN-291839 · $239.93 · Risk 62% — borderline, manual review advised.',  time:'12 min ago'},
+  {id:5,type:'review',unread:true, icon:'🔎',iconCls:'ni-review',sev:'med', title:'Micro-Transaction Anomaly',   desc:'TXN-291842 · $1.00 · Possible card test. Recommend block.',             time:'20 min ago'},
+  {id:6,type:'system',unread:true, icon:'🛡',iconCls:'ni-system',sev:'info',title:'Model Retrain Scheduled',     desc:'Next cycle in 4 hours. F1: 92.9%. No action needed.',                  time:'34 min ago'},
+  {id:7,type:'system',unread:false,icon:'✅',iconCls:'ni-safe',  sev:'low', title:'Daily Scan Completed',        desc:'284,807 transactions. 492 fraud (0.17%). System healthy.',              time:'1 hr ago'},
+  {id:8,type:'system',unread:false,icon:'📋',iconCls:'ni-system',sev:'info',title:'Weekly Report Generated',     desc:'Fraud rate down 0.02% from last week. Saved to exports.',              time:'3 hrs ago'},
+  {id:9,type:'fraud', unread:false,icon:'⚠️',iconCls:'ni-fraud', sev:'high',title:'Fraud Batch Detected',        desc:'5 transactions from IP 185.220.x.x flagged simultaneously.',           time:'5 hrs ago'},
+];
+let activeFilter='all';
+
+function getFiltered(){return activeFilter==='all'?notifData:notifData.filter(n=>n.type===activeFilter);}
+function unreadCount(){return notifData.filter(n=>n.unread).length;}
+function updateBadge(){
+  const cnt=unreadCount();
+  const b=document.getElementById('npBadge');
+  const d=document.getElementById('notifDot');
+  if(cnt>0){b.textContent=cnt+' unread';b.classList.remove('zero');d.classList.remove('hidden');}
+  else{b.textContent='All read';b.classList.add('zero');d.classList.add('hidden');}
+}
+function sevClass(s){return s==='high'?'sev-high':s==='med'?'sev-med':s==='low'?'sev-low':'sev-info';}
+function sevLabel(s){return s==='high'?'HIGH':s==='med'?'MEDIUM':s==='low'?'LOW':'INFO';}
+function renderNotifs(){
+  const list=document.getElementById('npList');
+  const empty=document.getElementById('npEmpty');
+  const footer=document.getElementById('npFootCount');
+  const items=getFiltered();
+  if(!items.length){list.innerHTML='';empty.classList.add('show');footer.textContent='0 shown';return;}
+  empty.classList.remove('show');
+  footer.textContent=items.length+' of '+notifData.length+' shown';
+  list.innerHTML=items.map(n=>`
+    <div class="np-item ${n.unread?'unread':''}" onclick="markRead(${n.id})">
+      <div class="np-ic ${n.iconCls}">${n.icon}</div>
+      <div class="np-body">
+        <div class="np-item-title">${n.title}</div>
+        <div class="np-item-desc"><span class="np-sev ${sevClass(n.sev)}">${sevLabel(n.sev)}</span>${n.desc}</div>
+        <div class="np-item-time">${n.time}</div>
+      </div>
+      ${n.unread?'<div class="np-unread-dot"></div>':''}
+    </div>`).join('');
+}
+function markRead(id){const n=notifData.find(x=>x.id===id);if(n)n.unread=false;renderNotifs();updateBadge();}
+function clearAll(){notifData.forEach(n=>n.unread=false);renderNotifs();updateBadge();}
+function filterNotif(type,el){
+  activeFilter=type;
+  document.querySelectorAll('.np-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');renderNotifs();
+}
+let notifOpen=false;
+function toggleNotif(e){
+  e.stopPropagation();
+  notifOpen=!notifOpen;
+  document.getElementById('notifPanel').classList.toggle('open',notifOpen);
+}
+document.addEventListener('click',e=>{
+  const panel=document.getElementById('notifPanel');
+  const btn=document.getElementById('notifBtn');
+  if(notifOpen&&panel&&!panel.contains(e.target)&&!btn.contains(e.target)){
+    notifOpen=false;panel.classList.remove('open');
+  }
+});
+renderNotifs();
+updateBadge();
+
+// ── CSV IMPORT ─────────────────────────────────────────────────
+let parsedRows = [];   // holds all parsed + scored rows
+let csvFileName = '';
+
+/* ── open / close modal ── */
+function openCsvModal(){
+  document.getElementById('csvModal').classList.add('open');
+  resetModal();
+}
+function closeCsvModal(){
+  document.getElementById('csvModal').classList.remove('open');
+}
+function handleBackdropClick(e){
+  if(e.target === document.getElementById('csvModal')) closeCsvModal();
+}
+
+/* ── drag & drop ── */
+function handleDragOver(e){
+  e.preventDefault();
+  document.getElementById('dropZone').classList.add('drag-over');
+}
+function handleDragLeave(e){
+  document.getElementById('dropZone').classList.remove('drag-over');
+}
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if(file) processFile(file);
+}
+function handleFileSelect(e){
+  const file = e.target.files[0];
+  if(file) processFile(file);
+  e.target.value = '';   // allow re-selecting same file
+}
+
+/* ── reset ── */
+function resetModal(){
+  parsedRows = [];
+  csvFileName = '';
+  document.getElementById('dropTitle').textContent = 'Drop your CSV here or click to browse';
+  document.getElementById('parseProgress').classList.remove('show');
+  document.getElementById('importStats').style.display = 'none';
+  document.getElementById('previewWrap').classList.remove('show');
+  document.getElementById('btnConfirmImport').disabled = true;
+  document.getElementById('cmFootInfo').textContent = 'No file selected';
+  document.getElementById('ppFill').style.width = '0%';
+  document.getElementById('ppPct').textContent = '0%';
+  document.getElementById('ppLabel').textContent = 'Parsing file…';
+}
+
+/* ── process file ── */
+function processFile(file){
+  if(!file.name.endsWith('.csv')){
+    showToast('⚠️','Invalid file type. Please select a .csv file.');return;
+  }
+  if(file.size > 10 * 1024 * 1024){
+    showToast('⚠️','File too large. Maximum size is 10 MB.');return;
+  }
+  csvFileName = file.name;
+  document.getElementById('dropTitle').textContent = '📄 ' + file.name;
+  document.getElementById('parseProgress').classList.add('show');
+  document.getElementById('importStats').style.display = 'none';
+  document.getElementById('previewWrap').classList.remove('show');
+  document.getElementById('btnConfirmImport').disabled = true;
+
+  const reader = new FileReader();
+  reader.onload = function(e){ parseCSV(e.target.result); };
+  reader.readAsText(file);
+}
+
+/* ── parse CSV ── */
+function parseCSV(text){
+  const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+  if(lines.length < 2){ showToast('⚠️','CSV appears empty or has no data rows.');return; }
+
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g,''));
+  const dataLines = lines.slice(1);
+  const total = dataLines.length;
+
+  // Column index helpers (case-insensitive fuzzy match)
+  function colIdx(names){
+    for(const n of names){
+      const i = headers.findIndex(h => h.toLowerCase().includes(n.toLowerCase()));
+      if(i >= -1 && i !== undefined) return i;
+    }
+    return -1;
+  }
+  const idxID     = colIdx(['transaction_id','txn_id','id','trans_id']);
+  const idxAmt    = colIdx(['amount','amt','value','price']);
+  const idxTime   = colIdx(['time','timestamp','datetime','date']);
+  const idxStatus = colIdx(['status','label','class','fraud','result','prediction']);
+  const idxRisk   = colIdx(['risk','risk_score','score','probability','prob']);
+
+  parsedRows = [];
+  let fraudCnt = 0, safeCnt = 0;
+
+  // Animate progress
+  let i = 0;
+  const batchSize = Math.max(1, Math.floor(total / 40));
+
+  function nextBatch(){
+    const end = Math.min(i + batchSize, total);
+    for(; i < end; i++){
+      const cols = dataLines[i].split(',').map(c => c.trim().replace(/^"|"$/g,''));
+      const raw = {
+        id:     idxID     >= 0 ? cols[idxID]     : 'TXN-'  + String(i+1).padStart(6,'0'),
+        amount: idxAmt    >= 0 ? parseFloat(cols[idxAmt])   || 0 : 0,
+        time:   idxTime   >= 0 ? cols[idxTime]   : '--:--:--',
+        status: idxStatus >= 0 ? cols[idxStatus].toUpperCase() : '',
+        risk:   idxRisk   >= 0 ? Math.round(parseFloat(cols[idxRisk]) || 0) : 0,
+      };
+
+      // Normalise status
+      if(['1','true','yes','fraud'].includes(raw.status.toLowerCase())) raw.status = 'FRAUD';
+      else if(['0','false','no','normal','safe','legitimate'].includes(raw.status.toLowerCase())) raw.status = 'SAFE';
+      else if(raw.status === '') raw.status = raw.risk >= 70 ? 'FRAUD' : raw.risk >= 30 ? 'REVIEW' : 'SAFE';
+      if(!['FRAUD','SAFE','REVIEW'].includes(raw.status)) raw.status = 'SAFE';
+
+      // Derive risk if not present
+      if(raw.risk === 0 && idxRisk < 0){
+        if(raw.status === 'FRAUD') raw.risk = 70 + Math.floor(Math.random()*28);
+        else if(raw.status === 'REVIEW') raw.risk = 30 + Math.floor(Math.random()*32);
+        else raw.risk = 1 + Math.floor(Math.random()*20);
+      }
+      raw.risk = Math.min(100, Math.max(0, raw.risk));
+
+      if(raw.status === 'FRAUD') fraudCnt++;
+      else safeCnt++;
+
+      parsedRows.push(raw);
+    }
+
+    const pct = Math.round((i / total) * 100);
+    document.getElementById('ppFill').style.width = pct + '%';
+    document.getElementById('ppPct').textContent  = pct + '%';
+    document.getElementById('ppLabel').textContent = `Parsing row ${i} of ${total}…`;
+
+    if(i < total){
+      requestAnimationFrame(nextBatch);
+    } else {
+      onParseComplete(headers, total, fraudCnt, safeCnt);
+    }
+  }
+  requestAnimationFrame(nextBatch);
+}
+
+/* ── on parse complete ── */
+function onParseComplete(headers, total, fraudCnt, safeCnt){
+  document.getElementById('ppFill').style.width  = '100%';
+  document.getElementById('ppPct').textContent   = '100%';
+  document.getElementById('ppLabel').textContent  = '✓ Parsing complete';
+
+  // Summary stats
+  document.getElementById('importStats').style.display = 'grid';
+  document.getElementById('istatTotal').textContent = total.toLocaleString();
+  document.getElementById('istatFraud').textContent = fraudCnt.toLocaleString();
+  document.getElementById('istatSafe').textContent  = (total - fraudCnt).toLocaleString();
+
+  // Preview table — first 10 rows
+  const previewCols = ['id','amount','time','status','risk'];
+  const previewLabels = ['Transaction ID','Amount','Time','Status','Risk'];
+  const wrap = document.getElementById('previewWrap');
+  wrap.classList.add('show');
+  document.getElementById('previewBadge').textContent =
+    'First ' + Math.min(10, parsedRows.length) + ' of ' + total + ' rows';
+
+  document.getElementById('previewHead').innerHTML =
+    '<tr>' + previewLabels.map(l => `<th>${l}</th>`).join('') + '</tr>';
+
+  document.getElementById('previewBody').innerHTML = parsedRows.slice(0,10).map(r => {
+    const pc = r.status==='FRAUD'?'p-fraud':r.status==='SAFE'?'p-safe':'p-review';
+    const riskCol = r.risk>=70?'var(--red2)':r.risk>=30?'var(--amber2)':'var(--green2)';
+    return `<tr>
+      <td style="color:var(--blue2);font-weight:500">${r.id}</td>
+      <td style="color:var(--t1);font-weight:500">$${Number(r.amount).toFixed(2)}</td>
+      <td>${r.time}</td>
+      <td><span class="pill ${pc}"><span class="pdot"></span>${r.status}</span></td>
+      <td style="color:${riskCol};font-weight:500">${r.risk}%</td>
+    </tr>`;
+  }).join('');
+
+  // Footer info & confirm button
+  document.getElementById('cmFootInfo').textContent =
+    csvFileName + ' · ' + total.toLocaleString() + ' rows · ' + fraudCnt + ' fraud detected';
+  document.getElementById('btnConfirmImport').disabled = false;
+}
+
+/* ── confirm: inject parsed rows into dashboard ── */
+function confirmImport(){
+  if(!parsedRows.length) return;
+
+  const fraudInFile = parsedRows.filter(r=>r.status==='FRAUD').length;
+
+  // Update fraud stat card
+  const fraudCardEl = document.querySelector('.card.rd .card-val');
+  if(fraudCardEl){
+    const cur = parseInt(fraudCardEl.textContent.replace(/,/g,'')) || 492;
+    fraudCardEl.textContent = (cur + fraudInFile).toLocaleString();
+  }
+
+  closeCsvModal();
+  showToast('✅', parsedRows.length.toLocaleString() + ' rows imported successfully!<br>' +
+    fraudInFile + ' fraud transactions detected.');
+}
+
+/* ── toast helper ── */
+function showToast(icon, msg){
+  const t = document.getElementById('toast');
+  document.getElementById('toastIcon').textContent = icon;
+  document.getElementById('toastMsg').innerHTML = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=> t.classList.remove('show'), 4000);
+}
+
+/* also hide .csv-btn label on very small screens */
+/* (handled via the existing .btn-primary span rule) */
+</script>
+<!-- Hidden file input -->
+<input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="handleFileSelect(event)">
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <span class="toast-icon" id="toastIcon">✅</span>
+  <div class="toast-msg" id="toastMsg"></div>
+</div>
+
+<!-- ═══ CSV IMPORT MODAL ═══ -->
+<div class="modal-backdrop" id="csvModal" onclick="handleBackdropClick(event)">
+  <div class="csv-modal" id="csvModalBox">
+
+    <!-- Head -->
+    <div class="cm-head">
+      <div class="cm-head-left">
+        <div class="cm-head-icon">📂</div>
+        <div>
+          <div class="cm-head-title">Import CSV File</div>
+          <div class="cm-head-sub">Upload transaction data for fraud analysis</div>
+        </div>
+      </div>
+      <button class="cm-close" onclick="closeCsvModal()">✕</button>
+    </div>
+
+    <!-- Body -->
+    <div class="cm-body">
+
+      <!-- Drop zone -->
+      <div class="drop-zone" id="dropZone"
+           onclick="document.getElementById('csvFileInput').click()"
+           ondragover="handleDragOver(event)"
+           ondragleave="handleDragLeave(event)"
+           ondrop="handleDrop(event)">
+        <div class="drop-zone-icon">📄</div>
+        <div class="drop-zone-title" id="dropTitle">Drop your CSV here or click to browse</div>
+        <div class="drop-zone-sub">
+          Supports <span>.csv</span> files · Max 10 MB<br>
+          Headers auto-detected · Any column order accepted
+        </div>
+      </div>
+
+      <!-- Expected columns hint -->
+      <div class="fmt-hint">
+        <div class="fmt-hint-title">Expected Columns</div>
+        <div class="fmt-cols">
+          <span class="fmt-col req">Transaction_ID</span>
+          <span class="fmt-col req">Amount</span>
+          <span class="fmt-col req">Time</span>
+          <span class="fmt-col req">Status</span>
+          <span class="fmt-col">Risk_Score</span>
+          <span class="fmt-col">V1</span>
+          <span class="fmt-col">V2</span>
+          <span class="fmt-col">V3</span>
+          <span class="fmt-col">…</span>
+        </div>
+        <div style="margin-top:8px;font-family:var(--fm);font-size:10px;color:var(--t3)">
+          Blue = required &nbsp;·&nbsp; Grey = optional &nbsp;·&nbsp; Unknown columns are ignored
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div class="parse-progress" id="parseProgress">
+        <div class="pp-label">
+          <span id="ppLabel">Parsing file…</span>
+          <span id="ppPct">0%</span>
+        </div>
+        <div class="pp-track"><div class="pp-fill" id="ppFill"></div></div>
+      </div>
+
+      <!-- Summary stats (shown after parse) -->
+      <div class="import-stats" id="importStats" style="display:none">
+        <div class="istat">
+          <div class="istat-val" id="istatTotal" style="color:var(--blue2)">—</div>
+          <div class="istat-lbl">Total Rows</div>
+        </div>
+        <div class="istat">
+          <div class="istat-val" id="istatFraud" style="color:var(--red2)">—</div>
+          <div class="istat-lbl">Fraud</div>
+        </div>
+        <div class="istat">
+          <div class="istat-val" id="istatSafe" style="color:var(--green2)">—</div>
+          <div class="istat-lbl">Safe / Review</div>
+        </div>
+      </div>
+
+      <!-- Preview table (shown after parse) -->
+      <div class="preview-wrap" id="previewWrap">
+        <div class="preview-hdr">
+          <span class="preview-title">Preview</span>
+          <span class="preview-badge" id="previewBadge">First 10 rows</span>
+        </div>
+        <div class="preview-scroll">
+          <table class="preview-table">
+            <thead id="previewHead"></thead>
+            <tbody id="previewBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /cm-body -->
+
+    <!-- Footer -->
+    <div class="cm-foot">
+      <div class="cm-foot-info" id="cmFootInfo">No file selected</div>
+      <div class="cm-foot-actions">
+        <button class="btn-cancel" onclick="closeCsvModal()">Cancel</button>
+        <button class="btn-import-confirm" id="btnConfirmImport" onclick="confirmImport()" disabled>
+          ✓ Load into Dashboard
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

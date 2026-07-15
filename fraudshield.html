@@ -489,6 +489,84 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;hei
 @media(max-width:500px){.challenges-grid{grid-template-columns:1fr;}}
 
 /* ═══════════════════════════════════════════════
+   REASON / EXPLANATION BOX
+═══════════════════════════════════════════════ */
+.reason-box {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 11px;
+  border: 1px solid var(--border2);
+  background: var(--bg3);
+  transition: background var(--transition), border-color var(--transition);
+}
+.reason-box.fraud-reason  { border-color: rgba(240,112,80,0.3);  background: rgba(240,112,80,0.05);  }
+.reason-box.safe-reason   { border-color: rgba(96,200,120,0.3);  background: rgba(96,200,120,0.04);  }
+.reason-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 8px;
+  display: flex; align-items: center; gap: 7px;
+}
+.reason-verdict {
+  font-size: 12.5px; color: var(--text);
+  line-height: 1.65; margin-bottom: 10px;
+  font-weight: 500;
+  transition: color var(--transition);
+}
+.reason-factors {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.reason-factor {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 11.5px; color: var(--muted);
+  line-height: 1.55;
+  padding: 6px 9px;
+  background: var(--bg4);
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  transition: background var(--transition);
+}
+.reason-factor-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  flex-shrink: 0; margin-top: 4px;
+}
+.reason-factor.fraud-factor .reason-factor-dot  { background: var(--danger); box-shadow: 0 0 4px var(--danger); }
+.reason-factor.safe-factor  .reason-factor-dot  { background: var(--success); box-shadow: 0 0 4px var(--success); }
+.reason-flags {
+  display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px;
+}
+.reason-flag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; padding: 2px 8px; border-radius: 20px;
+  background: rgba(240,112,80,0.12);
+  color: var(--danger);
+  border: 1px solid rgba(240,112,80,0.25);
+}
+.reason-flag.safe-flag {
+  background: rgba(96,200,120,0.10);
+  color: var(--success);
+  border-color: rgba(96,200,120,0.25);
+}
+.reason-summary-toggle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; color: var(--accent); cursor: pointer;
+  margin-top: 8px; display: inline-flex; align-items: center; gap: 4px;
+  border: none; background: transparent; padding: 0;
+  letter-spacing: 0.5px; transition: color var(--transition);
+}
+.reason-summary-toggle:hover { color: var(--accent3); }
+.reason-summary-text {
+  font-size: 11px; color: var(--muted); line-height: 1.65;
+  margin-top: 8px; display: none;
+  padding: 8px 10px;
+  background: var(--bg4);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  transition: background var(--transition);
+}
+.reason-summary-text.open { display: block; }
+
+/* ═══════════════════════════════════════════════
    TAB BUTTONS (Check Txn page)
 ═══════════════════════════════════════════════ */
 .tab-btn{
@@ -1368,6 +1446,21 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;hei
                 <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:8px;">TRANSACTION SUMMARY</div>
                 <div id="sfBreakdownBody" style="display:flex;flex-direction:column;gap:5px;font-size:12px;"></div>
               </div>
+
+              <!-- WHY THIS DECISION — reason explanation -->
+              <div id="reasonBox" class="reason-box" style="display:none;">
+                <div class="reason-title">
+                  <span id="reasonTitleIcon">🔍</span>
+                  WHY THIS DECISION
+                </div>
+                <div class="reason-verdict" id="reasonVerdict"></div>
+                <div class="reason-factors" id="reasonFactors"></div>
+                <div class="reason-flags" id="reasonFlags"></div>
+                <button class="reason-summary-toggle" onclick="toggleReasonSummary()" id="reasonToggleBtn">
+                  ▼ FULL EXPLANATION
+                </button>
+                <div class="reason-summary-text" id="reasonSummaryText"></div>
+              </div>
             </div>
           </div>
           <div id="loadingState" style="display:none;text-align:center;padding:44px">
@@ -1491,7 +1584,7 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;hei
     <div class="card" style="overflow-x:auto">
       <table class="data-table">
         <thead>
-          <tr><th>#</th><th>Prediction</th><th>Probability</th><th>Risk</th><th>Model</th><th>Time</th><th>Features (preview)</th></tr>
+          <tr><th>#</th><th>Prediction</th><th>Probability</th><th>Risk</th><th>Model</th><th>Time</th><th>Why?</th><th>Features</th></tr>
         </thead>
         <tbody id="historyBody">
           <tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No transactions yet</div></div></td></tr>
@@ -1851,14 +1944,19 @@ function pushFraudNotification(data, features, sourceLabel) {
   const dateStr = time.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'});
 
   const notif = {
-    id       : notifications.length + 1,
+    id          : notifications.length + 1,
     prob, pct, risk, model,
     timeStr, dateStr,
-    features : [...features],
-    source   : sourceLabel || 'Manual Check',
-    unread   : true,
-    // Smart form details (if available from lastSmartInputs at time of check)
+    features    : [...features],
+    source      : sourceLabel || 'Manual Check',
+    unread      : true,
     smartInputs : lastSmartInputs ? {...lastSmartInputs} : null,
+    // Reason data from backend
+    verdict_reason : data.verdict_reason || '',
+    factors        : data.factors        || [],
+    feature_flags  : data.feature_flags  || [],
+    summary        : data.summary        || '',
+    signal_count   : data.signal_count   || 0,
   };
 
   notifications.unshift(notif);
@@ -1870,10 +1968,9 @@ function pushFraudNotification(data, features, sourceLabel) {
   // Shake the bell
   const btn = document.getElementById('notifBtn');
   btn.classList.remove('has-notif');
-  void btn.offsetWidth;   // reflow to restart animation
+  void btn.offsetWidth;
   btn.classList.add('has-notif');
 
-  // If panel is open, keep it open; else show a toast
   if(!notifPanelOpen) {
     const amtDisplay = notif.smartInputs
       ? '₹' + notif.smartInputs.amount.toLocaleString('en-IN')
@@ -1959,7 +2056,8 @@ function renderNotifList() {
       </div>
       <div style="margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.5px">
         Click to view full details →
-      </div>`;
+      </div>
+      ${n.verdict_reason ? `<div style="margin-top:6px;font-size:10.5px;color:var(--muted);line-height:1.5;padding:6px 8px;background:var(--bg4);border-radius:7px;border:1px solid var(--border);">${n.verdict_reason.length>120 ? n.verdict_reason.slice(0,120)+'…' : n.verdict_reason}</div>` : ''}`;
     list.appendChild(card);
   });
 }
@@ -2131,6 +2229,30 @@ function openNotifModal(id) {
         <div class="feat-preview-val" style="color:${valColor}">${i<28?Number(v).toFixed(2):Number(v).toFixed(0)}</div>
       </div>`;
     });
+    body += `</div>`;
+  }
+
+  // ── Why this decision ─────────────────────────────────────────────
+  if(n.verdict_reason) {
+    body += `<div class="modal-section-title">🧠 Why This Decision</div>`;
+    body += `<div style="background:var(--bg3);border:1px solid ${n.prob>0.5?'rgba(240,112,80,0.25)':'rgba(96,200,120,0.25)'};border-radius:11px;padding:14px 16px;margin-bottom:10px">
+      <div style="font-size:12.5px;color:var(--text);line-height:1.65;font-weight:500;margin-bottom:12px">${n.verdict_reason}</div>`;
+    if(n.factors && n.factors.length > 0) {
+      body += `<div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-bottom:8px">KEY FACTORS</div>`;
+      body += `<div style="display:flex;flex-direction:column;gap:5px">`;
+      n.factors.forEach(fc => {
+        body += `<div style="display:flex;gap:8px;align-items:flex-start;padding:7px 9px;background:var(--bg4);border-radius:7px;border:1px solid var(--border);font-size:11.5px;color:var(--muted);line-height:1.5"><div style="width:6px;height:6px;border-radius:50%;background:${n.prob>0.5?'var(--danger)':'var(--success)'};flex-shrink:0;margin-top:4px;box-shadow:0 0 4px ${n.prob>0.5?'var(--danger)':'var(--success)'}"></div><span>${fc}</span></div>`;
+      });
+      body += `</div>`;
+    }
+    if(n.feature_flags && n.feature_flags.length > 0) {
+      body += `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px">`;
+      n.feature_flags.forEach(fl => { body += `<span style="font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 9px;border-radius:20px;background:rgba(240,112,80,0.12);color:var(--danger);border:1px solid rgba(240,112,80,0.25)">${fl}</span>`; });
+      body += `</div>`;
+    }
+    if(n.summary) {
+      body += `<div style="margin-top:10px;padding:9px 11px;background:var(--bg4);border-radius:8px;border:1px solid var(--border);font-size:11px;color:var(--muted);line-height:1.65">${n.summary}</div>`;
+    }
     body += `</div>`;
   }
 
@@ -2422,7 +2544,7 @@ function closeSidebar() {
 /* ═══════════════════════════════════════════════
    APP LOGIC
 ═══════════════════════════════════════════════ */
-const API = '';
+const API = 'http://127.0.0.1:5000';
 let selectedModel = 'xgboost';
 let txnHistory = [];
 let simInterval = null;
@@ -2827,6 +2949,48 @@ function displayResult(data, showBreakdown=false){
     if(warn) warn.style.display = 'none';
   }
 
+  // ── Reason / Explanation box ─────────────────────────────────────
+  const rb      = document.getElementById('reasonBox');
+  const verdict = document.getElementById('reasonVerdict');
+  const factors = document.getElementById('reasonFactors');
+  const flags   = document.getElementById('reasonFlags');
+  const summary = document.getElementById('reasonSummaryText');
+  const toggleBtn = document.getElementById('reasonToggleBtn');
+
+  if(data.verdict_reason || data.factors) {
+    rb.className = 'reason-box ' + (isFraud ? 'fraud-reason' : 'safe-reason');
+    rb.style.display = 'block';
+
+    // Title icon
+    document.getElementById('reasonTitleIcon').textContent = isFraud ? '⚠' : '✓';
+
+    // Verdict
+    verdict.textContent = data.verdict_reason || '';
+
+    // Factors
+    const facArr = data.factors || [];
+    factors.innerHTML = facArr.map(f =>
+      `<div class="reason-factor ${isFraud?'fraud-factor':'safe-factor'}">
+        <div class="reason-factor-dot"></div>
+        <span>${f}</span>
+      </div>`
+    ).join('');
+
+    // Feature flags
+    const flagArr = data.feature_flags || [];
+    flags.innerHTML = flagArr.map(fl =>
+      `<span class="reason-flag ${isFraud?'':'safe-flag'}">${fl}</span>`
+    ).join('');
+    if(flagArr.length === 0) flags.innerHTML = '';
+
+    // Summary (collapsed by default)
+    summary.textContent  = data.summary || '';
+    summary.classList.remove('open');
+    toggleBtn.textContent = '▼ FULL EXPLANATION';
+  } else {
+    rb.style.display = 'none';
+  }
+
   // ── Smart form transaction breakdown ─────────────────────────────
   const bdWrap = document.getElementById('sfBreakdown');
   const bdBody = document.getElementById('sfBreakdownBody');
@@ -2854,23 +3018,55 @@ function displayResult(data, showBreakdown=false){
   document.getElementById('resultContent').style.display = 'block';
 }
 
-/* HISTORY */
+function toggleReasonSummary() {
+  const el  = document.getElementById('reasonSummaryText');
+  const btn = document.getElementById('reasonToggleBtn');
+  const open = el.classList.toggle('open');
+  btn.textContent = open ? '▲ HIDE EXPLANATION' : '▼ FULL EXPLANATION';
+}
+
+
 function addHistory(data,features){
-  const record={id:txnHistory.length+1,prediction:data.prediction||'Not Fraud',probability:data.probability||0,model:data.model_used||selectedModel,features,time:new Date().toLocaleTimeString()};
+  const record={
+    id:txnHistory.length+1,
+    prediction:data.prediction||'Not Fraud',
+    probability:data.probability||0,
+    model:data.model_used||selectedModel,
+    features,
+    time:new Date().toLocaleTimeString(),
+    verdict_reason: data.verdict_reason || '',
+    factors:        data.factors        || [],
+    feature_flags:  data.feature_flags  || [],
+    signal_count:   data.signal_count   || 0,
+  };
   txnHistory.unshift(record);renderHistory();probData.push(record.probability);
 }
 function renderHistory(records){
   const rows=records||txnHistory;
   document.getElementById('histCount').textContent=rows.length+' records';
   const body=document.getElementById('historyBody');
-  if(!rows.length){body.innerHTML='<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No transactions yet</div></div></td></tr>';return;}
+  if(!rows.length){body.innerHTML='<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No transactions yet</div></div></td></tr>';return;}
   body.innerHTML=rows.map(r=>{
     const prob=(r.probability*100).toFixed(1);
     const lvl=r.probability>0.7?'High':r.probability>0.4?'Med':'Low';
     const lvlColor=r.probability>0.7?'var(--danger)':r.probability>0.4?'var(--warn)':'var(--success)';
     const isFraud=r.prediction==='Fraud';
-    const preview=r.features.slice(0,5).map(v=>Number(v).toFixed(2)).join(', ')+'...';
-    return`<tr><td style="font-family:'JetBrains Mono',monospace;color:var(--muted);font-size:10px">#${r.id}</td><td><span class="pill ${isFraud?'pill-fraud':'pill-safe'}">${r.prediction}</span></td><td style="font-family:'JetBrains Mono',monospace;font-size:12px">${prob}%</td><td style="font-size:12px;color:${lvlColor};font-weight:600">${lvl}</td><td style="font-size:10.5px;color:var(--muted);font-family:'JetBrains Mono',monospace">${r.model}</td><td style="font-size:10.5px;color:var(--muted);font-family:'JetBrains Mono',monospace">${r.time}</td><td style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${preview}</td></tr>`;
+    const preview=r.features.slice(0,4).map(v=>Number(v).toFixed(2)).join(', ')+'...';
+    const reasonSnippet=r.verdict_reason?(r.verdict_reason.slice(0,90)+(r.verdict_reason.length>90?'…':'')):'—';
+    const flagsHtml=(r.feature_flags||[]).slice(0,3).map(fl=>`<span style="font-family:'JetBrains Mono',monospace;font-size:8px;padding:1px 6px;border-radius:20px;background:${isFraud?'rgba(240,112,80,0.12)':'rgba(96,200,120,0.10)'};color:${isFraud?'var(--danger)':'var(--success)'};border:1px solid ${isFraud?'rgba(240,112,80,0.25)':'rgba(96,200,120,0.25)'}">${fl}</span>`).join(' ');
+    return`<tr>
+      <td style="font-family:'JetBrains Mono',monospace;color:var(--muted);font-size:10px">#${r.id}</td>
+      <td><span class="pill ${isFraud?'pill-fraud':'pill-safe'}">${r.prediction}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:12px">${prob}%</td>
+      <td style="font-size:12px;color:${lvlColor};font-weight:600">${lvl}</td>
+      <td style="font-size:10.5px;color:var(--muted);font-family:'JetBrains Mono',monospace">${r.model}</td>
+      <td style="font-size:10.5px;color:var(--muted);font-family:'JetBrains Mono',monospace">${r.time}</td>
+      <td style="max-width:220px">
+        <div style="font-size:10.5px;color:var(--muted);line-height:1.4;margin-bottom:3px">${reasonSnippet}</div>
+        <div style="display:flex;gap:3px;flex-wrap:wrap">${flagsHtml}</div>
+      </td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${preview}</td>
+    </tr>`;
   }).join('');
 }
 function filterHistory(){const q=document.getElementById('historySearch').value.toLowerCase();const f=document.getElementById('historyFilter').value;renderHistory(txnHistory.filter(r=>{const mQ=!q||r.prediction.toLowerCase().includes(q)||r.model.toLowerCase().includes(q)||r.time.includes(q);const mF=f==='all'||r.prediction===f;return mQ&&mF;}));}
@@ -2991,9 +3187,30 @@ function addFeedItem(data,features){
   const item=document.createElement('div');
   item.className='feed-item';
   item.style.cssText='display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--bg3);border-radius:11px;border:1px solid '+(isFraud?'rgba(252,129,129,0.18)':'var(--border)')+';animation:feedIn 0.35s ease;flex-wrap:nowrap;transition:background 0.3s,border-color 0.3s;';
+  const reasonSnip = data.verdict_reason ? data.verdict_reason.slice(0,80)+(data.verdict_reason.length>80?'…':'') : '';
+  const flagsHtml = (data.feature_flags||[]).slice(0,3).map(fl=>`<span style="font-family:'JetBrains Mono',monospace;font-size:8px;padding:1px 5px;border-radius:20px;background:${isFraud?'rgba(240,112,80,0.12)':'rgba(96,200,120,0.10)'};color:${isFraud?'var(--danger)':'var(--success)'};border:1px solid ${isFraud?'rgba(240,112,80,0.25)':'rgba(96,200,120,0.25)'}">${fl}</span>`).join(' ');
   item.innerHTML=`<div style="width:38px;height:38px;border-radius:10px;background:${isFraud?'rgba(252,129,129,0.12)':'rgba(104,211,145,0.1)'};border:1px solid ${isFraud?'rgba(252,129,129,0.25)':'rgba(104,211,145,0.2)'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;">${merchant.icon}</div>
-    <div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;"><span style="font-weight:600;font-size:13px;color:var(--text)">${merchant.name}</span><span style="font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border-radius:20px;background:var(--bg4);color:var(--muted);border:1px solid var(--border)">${merchant.cat}</span><span style="font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(212,175,80,0.08);color:var(--accent);border:1px solid rgba(212,175,80,0.15)">${modelLabel}</span></div><div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><span>${city}</span><span style="opacity:0.4">•</span><span>${card}</span><span style="opacity:0.4">•</span><span>${time}</span></div></div>
-    <div style="text-align:right;flex-shrink:0;"><div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:${isFraud?'var(--danger)':'var(--text)'};margin-bottom:6px">${amtFmt}</div><div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;"><div style="width:48px;height:4px;border-radius:4px;background:var(--bg4);overflow:hidden"><div style="width:${prob}%;height:100%;background:${Number(prob)>70?'var(--danger)':Number(prob)>40?'var(--warn)':'var(--success)'};border-radius:4px"></div></div><span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${Number(prob)>70?'var(--danger)':Number(prob)>40?'var(--warn)':'var(--success)'}">${prob}%</span></div></div>`;
+    <div style="flex:1;min-width:0;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">
+        <span style="font-weight:600;font-size:13px;color:var(--text)">${merchant.name}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border-radius:20px;background:var(--bg4);color:var(--muted);border:1px solid var(--border)">${merchant.cat}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(212,175,80,0.08);color:var(--accent);border:1px solid rgba(212,175,80,0.15)">${modelLabel}</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span>${city}</span><span style="opacity:0.4">•</span><span>${card}</span><span style="opacity:0.4">•</span><span>${time}</span>
+      </div>
+      ${reasonSnip ? `<div style="margin-top:5px;font-size:10px;color:var(--muted);line-height:1.4">${reasonSnip}</div>` : ''}
+      ${flagsHtml ? `<div style="margin-top:3px;display:flex;gap:3px;flex-wrap:wrap">${flagsHtml}</div>` : ''}
+    </div>
+    <div style="text-align:right;flex-shrink:0;">
+      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:${isFraud?'var(--danger)':'var(--text)'};margin-bottom:6px">${amtFmt}</div>
+      <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
+        <div style="width:48px;height:4px;border-radius:4px;background:var(--bg4);overflow:hidden">
+          <div style="width:${prob}%;height:100%;background:${Number(prob)>70?'var(--danger)':Number(prob)>40?'var(--warn)':'var(--success)'};border-radius:4px"></div>
+        </div>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${Number(prob)>70?'var(--danger)':Number(prob)>40?'var(--warn)':'var(--success)'}">${prob}%</span>
+      </div>
+    </div>`;
   const feed=document.getElementById('simFeed');
   feed.insertBefore(item,feed.firstChild);
   while(feed.children.length>30) feed.removeChild(feed.lastChild);
@@ -3024,7 +3241,14 @@ function uploadCSV(){
     toast(`${data.length} rows — ${fraudRows} fraud detected`,'success');
     // Push one notification per fraud row (staggered so bell animation is visible)
     data.filter(r=>r.prediction==='Fraud').forEach((r,i) => {
-      const fakeData = {prediction:'Fraud', probability:r.probability, model_used:r.model};
+      const fakeData = {
+        prediction:'Fraud', probability:r.probability, model_used:r.model,
+        verdict_reason: r.verdict_reason || '',
+        factors:        r.factors        || [],
+        feature_flags:  r.feature_flags  || [],
+        signal_count:   r.signal_count   || 0,
+        summary:        r.summary        || '',
+      };
       setTimeout(()=>pushFraudNotification(fakeData, Array(30).fill(0), `CSV Upload — Row ${r.row}`), i*180);
     });
   })
@@ -3032,21 +3256,33 @@ function uploadCSV(){
 }
 function renderCSVResults(data){
   if(!data.length){document.getElementById('csvResultWrap').innerHTML='<div class="empty-state">No results</div>';return;}
-  const keys=Object.keys(data[0]);
-  let html=`<div style="overflow-x:auto"><table class="data-table"><thead><tr>${keys.map(k=>`<th>${k}</th>`).join('')}</tr></thead><tbody>`;
-  data.slice(0,100).forEach(row=>{html+=`<tr>${keys.map(k=>{const v=row[k];
-    if(k.toLowerCase()==='prediction'){
-      const iF=String(v)==='Fraud';
-      return`<td><span class="pill ${iF?'pill-fraud':'pill-safe'}">${v}</span></td>`;
-    }
-    if(k.toLowerCase()==='risk'){
-      const rc=String(v)==='High'?'var(--danger)':String(v)==='Medium'?'var(--warn)':'var(--success)';
-      return`<td style="color:${rc};font-weight:600;font-size:11px">${v}</td>`;
-    }
-    return`<td style="font-size:11.5px;font-family:monospace">${typeof v==='number'?v.toFixed(3):v}</td>`;
-  }).join('')}</tr>`;});
-  if(data.length>100)html+=`<tr><td colspan="${keys.length}" style="text-align:center;color:var(--muted);font-size:12px;padding:16px">...and ${data.length-100} more rows</td></tr>`;
-  html+='</tbody></table></div>';document.getElementById('csvResultWrap').innerHTML=html;
+  // Build a clean table with reason column
+  let html=`<div style="overflow-x:auto"><table class="data-table"><thead><tr>
+    <th>Row</th><th>Prediction</th><th>Probability</th><th>Risk</th><th>Model</th><th>Why?</th>
+  </tr></thead><tbody>`;
+  data.slice(0,100).forEach(row=>{
+    const iF = String(row.prediction)==='Fraud';
+    const prob = typeof row.probability==='number' ? (row.probability*100).toFixed(1) : row.probability;
+    const rc = String(row.risk)==='High'?'var(--danger)':String(row.risk)==='Medium'?'var(--warn)':'var(--success)';
+    const reasonSnip = row.verdict_reason ? row.verdict_reason.slice(0,100)+(row.verdict_reason.length>100?'…':'') : '—';
+    const flagsHtml = (row.feature_flags||[]).slice(0,3).map(fl=>
+      `<span style="font-family:'JetBrains Mono',monospace;font-size:8px;padding:1px 5px;border-radius:20px;background:${iF?'rgba(240,112,80,0.12)':'rgba(96,200,120,0.10)'};color:${iF?'var(--danger)':'var(--success)'};border:1px solid ${iF?'rgba(240,112,80,0.25)':'rgba(96,200,120,0.25)'}">${fl}</span>`
+    ).join(' ');
+    html+=`<tr>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)">${row.row||'—'}</td>
+      <td><span class="pill ${iF?'pill-fraud':'pill-safe'}">${row.prediction}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:12px">${prob}%</td>
+      <td style="color:${rc};font-weight:600;font-size:11px">${row.risk}</td>
+      <td style="font-size:10.5px;color:var(--muted);font-family:'JetBrains Mono',monospace">${row.model}</td>
+      <td style="max-width:260px">
+        <div style="font-size:10.5px;color:var(--muted);line-height:1.4;margin-bottom:3px">${reasonSnip}</div>
+        <div style="display:flex;gap:3px;flex-wrap:wrap">${flagsHtml}</div>
+      </td>
+    </tr>`;
+  });
+  if(data.length>100)html+=`<tr><td colspan="6" style="text-align:center;color:var(--muted);font-size:12px;padding:16px">...and ${data.length-100} more rows</td></tr>`;
+  html+='</tbody></table></div>';
+  document.getElementById('csvResultWrap').innerHTML=html;
 }
 function downloadCSVResults(){if(!csvResults.length){toast('No results','warn');return;}const keys=Object.keys(csvResults[0]);const rows=[keys.join(','),...csvResults.map(r=>keys.map(k=>r[k]).join(','))];downloadCSVFile(rows.join('\n'),'fraud_predictions.csv');toast('Downloaded','success');}
 

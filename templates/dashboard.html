@@ -604,26 +604,40 @@ function animVal(el, v) {
 }
 
 /* ── ADD LOG ITEM ────────────────────────────── */
-function addLog(isFraud, prob, modelName) {
+function addLog(isFraud, prob, modelName, reasonData) {
   const log = document.getElementById('activityLog');
-  // Clear placeholder
   if (logEvents.length === 0) log.innerHTML = '';
 
   const time = new Date().toLocaleTimeString('en-IN', {
     hour: '2-digit', minute: '2-digit', second: '2-digit'
   });
   const pct = (prob * 100).toFixed(1);
-  logEvents.unshift({ isFraud, prob, time, modelName });
+  logEvents.unshift({ isFraud, prob, time, modelName, reasonData });
   if (logEvents.length > 50) logEvents.pop();
+
+  const verdict  = reasonData && reasonData.verdict_reason
+    ? reasonData.verdict_reason.slice(0, 90) + (reasonData.verdict_reason.length > 90 ? '…' : '')
+    : '';
+  const flags    = reasonData && reasonData.feature_flags
+    ? reasonData.feature_flags.slice(0, 3)
+    : [];
+  const flagsHtml = flags.map(fl =>
+    `<span style="font-family:'JetBrains Mono',monospace;font-size:8px;padding:1px 6px;border-radius:20px;background:${isFraud?'rgba(240,112,80,0.12)':'rgba(96,200,120,0.10)'};color:${isFraud?'var(--danger)':'var(--success)'};border:1px solid ${isFraud?'rgba(240,112,80,0.25)':'rgba(96,200,120,0.25)'}">${fl}</span>`
+  ).join(' ');
 
   const item = document.createElement('div');
   item.className = 'log-item';
+  item.style.cssText = 'flex-direction:column;align-items:flex-start;gap:5px;padding:10px 12px;';
   item.innerHTML = `
-    <div class="log-dot ${isFraud ? 'fraud' : 'safe'}"></div>
-    <span style="font-weight:600;font-size:12px;color:${isFraud ? 'var(--danger)' : 'var(--success)'}">${isFraud ? 'FRAUD' : 'SAFE'}</span>
-    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)">${pct}% risk</span>
-    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);margin-left:4px">${modelName || ''}</span>
-    <span class="log-time">${time}</span>`;
+    <div style="display:flex;align-items:center;gap:8px;width:100%">
+      <div class="log-dot ${isFraud ? 'fraud' : 'safe'}"></div>
+      <span style="font-weight:600;font-size:12px;color:${isFraud ? 'var(--danger)' : 'var(--success)'}">${isFraud ? 'FRAUD' : 'SAFE'}</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)">${pct}% risk</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);margin-left:2px">${modelName || ''}</span>
+      <span class="log-time">${time}</span>
+    </div>
+    ${verdict ? `<div style="font-size:10.5px;color:var(--muted);line-height:1.4;padding-left:15px">${verdict}</div>` : ''}
+    ${flagsHtml ? `<div style="display:flex;gap:3px;flex-wrap:wrap;padding-left:15px">${flagsHtml}</div>` : ''}`;
   log.insertBefore(item, log.firstChild);
   while (log.children.length > 20) log.removeChild(log.lastChild);
   document.getElementById('logCount').textContent = logEvents.length + ' events';
@@ -714,7 +728,7 @@ async function poll() {
     // Add log entry only when a new prediction happened
     if (total > prevTotal) {
       const mostUsed = lr >= rf && lr >= xgb ? 'Logistic' : rf >= xgb ? 'RF' : 'XGBoost';
-      addLog(isFraud, prob, mostUsed);
+      addLog(isFraud, prob, mostUsed, null);
       prevTotal = total;
     }
 

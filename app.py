@@ -156,7 +156,7 @@ def predict():
 
         model, model_name = _resolve_model(data)
 
-        prediction, probability = predict_transaction(
+        prediction, probability, reasons = predict_transaction(
             model, features,
             model_name=model_name,
             scaler=LR_SCALER if model_name == "Logistic Regression" else None,
@@ -170,9 +170,14 @@ def predict():
         else:                safe_count  += 1
 
         return jsonify({
-            "prediction":  label,
-            "probability": round(probability, 4),
-            "model_used":  model_name,
+            "prediction":     label,
+            "probability":    round(probability, 4),
+            "model_used":     model_name,
+            "verdict_reason": reasons["verdict_reason"],
+            "factors":        reasons["factors"],
+            "feature_flags":  reasons["feature_flags"],
+            "signal_count":   reasons["signal_count"],
+            "summary":        reasons["summary"],
         })
 
     except KeyError as e:
@@ -248,7 +253,7 @@ def simulate():
     fake = np.random.randn(1, 30).astype(float)
     model, model_name = select_model_by_count(MODELS, 50)   # always RF
 
-    prediction, probability = predict_transaction(
+    prediction, probability, reasons = predict_transaction(
         model, fake, model_name=model_name, scaler=None
     )
     label = "Fraud" if prediction == 1 else "Not Fraud"
@@ -259,9 +264,13 @@ def simulate():
     else:                safe_count  += 1
 
     return jsonify({
-        "prediction":  label,
-        "probability": round(probability, 4),
-        "model_used":  model_name,
+        "prediction":     label,
+        "probability":    round(probability, 4),
+        "model_used":     model_name,
+        "verdict_reason": reasons["verdict_reason"],
+        "factors":        reasons["factors"],
+        "feature_flags":  reasons["feature_flags"],
+        "signal_count":   reasons["signal_count"],
     })
 
 

@@ -1906,7 +1906,549 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;hei
         <div style="background:var(--bg3);border-radius:10px;padding:16px;border:1px solid var(--border);transition:background var(--transition)"><div style="color:var(--success);font-size:13px;font-weight:600;margin-bottom:6px">&#x1F4C8; Metric Choice</div><div style="font-size:12px;color:var(--muted);line-height:1.6">Accuracy is deceptive on imbalanced data. FraudShield uses F1, F2, AUC-ROC, and MCC as the real performance benchmarks.</div></div>
       </div>
     </div>
-  </div>
+
+    <!-- ══ HOW IT WORKS — END TO END FLOW ══════════════════════════════════ -->
+    <div class="card" style="margin-bottom:22px">
+      <div class="info-section-title">⚙️ How FraudShield Works — End to End</div>
+      <div style="font-size:12.5px;color:var(--muted);line-height:1.8;margin-bottom:18px">
+        Every transaction — whether entered manually, through the Smart Form, CSV upload, or Live Feed — follows the exact same inference pipeline. Here is every step from input to final decision.
+      </div>
+
+      <!-- Flow arrows -->
+      <div style="display:flex;flex-direction:column;gap:0;">
+
+        <!-- Step A -->
+        <div style="display:flex;gap:0;align-items:stretch;">
+          <div style="display:flex;flex-direction:column;align-items:center;margin-right:14px;flex-shrink:0;">
+            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--violet));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:#0a0c0e;flex-shrink:0;">1</div>
+            <div style="width:2px;flex:1;background:linear-gradient(180deg,var(--accent),var(--border));margin:4px 0;min-height:20px;"></div>
+          </div>
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px;flex:1;transition:background var(--transition);">
+            <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--text);margin-bottom:5px;">User Input</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.65;">
+              Three input paths all produce the same 30-number feature array:<br>
+              <span style="color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:11px;">Smart Form</span> — user fills ₹ amount, merchant, location, time, card type → <b>fraud score computed → PCA features interpolated</b> (see Section below)<br>
+              <span style="color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:11px;">Raw CSV</span> — user pastes 30 comma-separated values directly<br>
+              <span style="color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:11px;">CSV Upload</span> — batch file, each row becomes one prediction
+            </div>
+          </div>
+        </div>
+
+        <!-- Step B -->
+        <div style="display:flex;gap:0;align-items:stretch;">
+          <div style="display:flex;flex-direction:column;align-items:center;margin-right:14px;flex-shrink:0;">
+            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--violet),var(--cyan));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:#0a0c0e;flex-shrink:0;">2</div>
+            <div style="width:2px;flex:1;background:linear-gradient(180deg,var(--violet),var(--border));margin:4px 0;min-height:20px;"></div>
+          </div>
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px;flex:1;transition:background var(--transition);">
+            <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--text);margin-bottom:5px;">POST /predict — Flask API receives the request</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.65;">
+              The JavaScript frontend sends a JSON body to <span style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:11px">http://127.0.0.1:5000/predict</span>:
+              <div style="margin-top:7px;padding:8px 12px;background:var(--bg4);border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);border:1px solid var(--border);">{ "features": [v1, v2, ..., v28, amount, time], "model": "xgboost" }</div>
+              Flask's <b>_resolve_model()</b> reads the "model" key and selects the correct .pkl file — XGBoost, Random Forest, or Logistic Regression.
+            </div>
+          </div>
+        </div>
+
+        <!-- Step C -->
+        <div style="display:flex;gap:0;align-items:stretch;">
+          <div style="display:flex;flex-direction:column;align-items:center;margin-right:14px;flex-shrink:0;">
+            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--success));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:#0a0c0e;flex-shrink:0;">3</div>
+            <div style="width:2px;flex:1;background:linear-gradient(180deg,var(--cyan),var(--border));margin:4px 0;min-height:20px;"></div>
+          </div>
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px;flex:1;transition:background var(--transition);">
+            <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--text);margin-bottom:5px;">predict_transaction() — post.py</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.65;">
+              <b>Logistic Regression only:</b> features are passed through <span style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:11px">lr_scaler.pkl</span> (StandardScaler fitted on training data) before inference. Tree models receive raw features.<br><br>
+              <b>Model inference:</b> <span style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:11px">model.predict_proba(features)[0][1]</span> returns a float in [0,1] — the probability that this transaction belongs to class 1 (Fraud).<br><br>
+              <b>Decision threshold:</b> XGBoost and RF use 0.5. Logistic Regression uses a tuned threshold stored as <span style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:11px">model.best_threshold_</span> (found via precision-recall curve during training) because LR's raw probabilities are miscalibrated after SMOTE.
+            </div>
+          </div>
+        </div>
+
+        <!-- Step D -->
+        <div style="display:flex;gap:0;align-items:stretch;">
+          <div style="display:flex;flex-direction:column;align-items:center;margin-right:14px;flex-shrink:0;">
+            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--success),var(--warn));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:#0a0c0e;flex-shrink:0;">4</div>
+            <div style="width:2px;flex:1;background:linear-gradient(180deg,var(--success),var(--border));margin:4px 0;min-height:20px;"></div>
+          </div>
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px;flex:1;transition:background var(--transition);">
+            <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--text);margin-bottom:5px;">generate_reasons() — post.py</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.65;">
+              After the model predicts, <b>generate_reasons()</b> analyses the raw feature values against known fraud/legitimate distribution means from published ULB dataset research. It checks:<br>
+              <div style="margin-top:7px;display:grid;grid-template-columns:1fr 1fr;gap:5px;">
+                <div style="padding:5px 9px;background:var(--bg4);border-radius:6px;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;">V3 &lt; −5.0 → <span style="color:var(--danger)">fraud signal</span></div>
+                <div style="padding:5px 9px;background:var(--bg4);border-radius:6px;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;">V14 &lt; −6.0 → <span style="color:var(--danger)">top signal</span></div>
+                <div style="padding:5px 9px;background:var(--bg4);border-radius:6px;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;">V17 &lt; −5.0 → <span style="color:var(--danger)">fraud signal</span></div>
+                <div style="padding:5px 9px;background:var(--bg4);border-radius:6px;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;">V4 &gt; +3.0 → <span style="color:var(--danger)">fraud signal</span></div>
+                <div style="padding:5px 9px;background:var(--bg4);border-radius:6px;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;">Amount &gt; 1000 → <span style="color:var(--warn)">elevated</span></div>
+                <div style="padding:5px 9px;background:var(--bg4);border-radius:6px;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;">V12 &lt; −4.0 → <span style="color:var(--danger)">fraud signal</span></div>
+              </div>
+              Returns <b>verdict_reason</b> (one sentence), <b>factors</b> (list of specific findings), <b>feature_flags</b> (triggered feature names), and a full <b>summary</b> paragraph.
+            </div>
+          </div>
+        </div>
+
+        <!-- Step E -->
+        <div style="display:flex;gap:0;align-items:stretch;">
+          <div style="display:flex;flex-direction:column;align-items:center;margin-right:14px;flex-shrink:0;">
+            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--warn),var(--danger));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:#0a0c0e;flex-shrink:0;">5</div>
+            <div style="width:2px;flex:1;background:linear-gradient(180deg,var(--warn),transparent);margin:4px 0;min-height:20px;"></div>
+          </div>
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px;flex:1;transition:background var(--transition);">
+            <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--text);margin-bottom:5px;">UI displays result + reasons</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.65;">
+              The frontend receives the JSON response and simultaneously updates:<br>
+              — <b>Result card</b>: Fraud/Not Fraud label, probability bar, risk level, confidence, "Why This Decision" reason box<br>
+              — <b>History table</b>: new row with Why? column showing reason snippet + feature flag pills<br>
+              — <b>Dashboard charts</b>: fraud rate line, distribution bar, model usage bar all update<br>
+              — <b>Notification bell</b>: if Fraud → bell shakes, badge increments, alert pushed to panel with full reason detail<br>
+              — <b>Live Feed</b>: transaction card shows merchant, amount, reason snippet, feature flags
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /flow -->
+
+      <!-- Three display values explained -->
+      <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:12px;">HOW THE 3 DISPLAY VALUES ARE CALCULATED</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <div style="background:var(--bg3);border-radius:10px;padding:13px;border:1px solid var(--border);transition:background var(--transition);">
+            <div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;">Risk Probability %</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);margin-bottom:5px;">model.predict_proba()[0][1] × 100</div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.6;">Direct output of the model. The probability that this transaction belongs to class 1 (Fraud). No post-processing — raw model confidence.</div>
+          </div>
+          <div style="background:var(--bg3);border-radius:10px;padding:13px;border:1px solid var(--border);transition:background var(--transition);">
+            <div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--warn);margin-bottom:6px;">Risk Level</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);margin-bottom:5px;">prob &gt; 0.7 → High · &gt; 0.4 → Medium · else Low</div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.6;">Simple threshold bucketing applied to the raw probability. These thresholds are hardcoded — not learned from data. Used for quick visual triage.</div>
+          </div>
+          <div style="background:var(--bg3);border-radius:10px;padding:13px;border:1px solid var(--border);transition:background var(--transition);">
+            <div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--success);margin-bottom:6px;">Confidence %</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);margin-bottom:5px;">(1 − |prob − 0.5| × 2) × 100</div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.6;">Measures how far the probability is from the 0.5 decision boundary. Probability = 0.99 → confidence 2% (extreme but uncertain). Probability = 0.01 → confidence 2%. Probability = 0.5 → confidence 100% (perfectly on the fence).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ HOW V1-V28 ARE CALCULATED FROM REAL TRANSACTION DATA ══════════ -->
+    <div class="card" style="margin-bottom:22px">
+      <div class="info-section-title">🔢 How V1–V28 Are Calculated — From Real Transaction to Feature Vector</div>
+
+      <div style="font-size:12.5px;color:var(--muted);line-height:1.8;margin-bottom:18px;">
+        The 30 numbers you enter into FraudShield (V1–V28 + Amount + Time) come from a process called
+        <b style="color:var(--text)">Principal Component Analysis (PCA)</b>. This section explains exactly what PCA does
+        and how a bank would produce these numbers from a real transaction.
+      </div>
+
+      <!-- What a real transaction looks like -->
+      <div style="margin-bottom:18px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:10px;">STEP 1 — WHAT A REAL TRANSACTION CONTAINS</div>
+        <div style="background:var(--bg3);border-radius:12px;padding:16px;border:1px solid var(--border);transition:background var(--transition);">
+          <div style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:12px;">
+            When you swipe or tap a card, the bank's system captures dozens of data points about that transaction:
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+            <div style="padding:8px 10px;background:var(--bg4);border-radius:8px;border:1px solid var(--border);">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--accent);letter-spacing:1px;margin-bottom:3px;">TRANSACTION</div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.6;">Amount · Currency · Timestamp · MCC code (merchant category) · Terminal ID · Transaction type (POS/online/ATM)</div>
+            </div>
+            <div style="padding:8px 10px;background:var(--bg4);border-radius:8px;border:1px solid var(--border);">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--accent);letter-spacing:1px;margin-bottom:3px;">CARDHOLDER</div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.6;">Card age · Credit limit · Average spend · Number of txns today · Distance from home city · Device fingerprint</div>
+            </div>
+            <div style="padding:8px 10px;background:var(--bg4);border-radius:8px;border:1px solid var(--border);">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--accent);letter-spacing:1px;margin-bottom:3px;">CONTEXT</div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.6;">Time of day · Day of week · Country of merchant · IP geolocation · Velocity (5-min, 1-hr, 24-hr txn count)</div>
+            </div>
+          </div>
+          <div style="margin-top:10px;font-size:11.5px;color:var(--muted);line-height:1.65;">
+            In the ULB dataset this might be <b style="color:var(--text)">30–50+ original features</b> per transaction — but the bank cannot release them publicly because they would identify cardholders. So they applied PCA.
+          </div>
+        </div>
+      </div>
+
+      <!-- What PCA does -->
+      <div style="margin-bottom:18px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:10px;">STEP 2 — WHAT PCA DOES TO THOSE FEATURES</div>
+        <div style="background:var(--bg3);border-radius:12px;padding:16px;border:1px solid var(--border);transition:background var(--transition);">
+          <div style="font-size:12px;color:var(--muted);line-height:1.75;margin-bottom:12px;">
+            PCA is a mathematical transformation. It takes the original N features and produces N new features (called <b style="color:var(--text)">principal components</b>). Each component is a weighted combination of all original features:
+          </div>
+          <div style="padding:12px 16px;background:var(--bg4);border-radius:9px;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--cyan);margin-bottom:12px;line-height:1.8;">
+            V1 = 0.31×Amount − 0.12×MCC + 0.08×CardAge + 0.44×TimeOfDay − 0.19×Velocity + ...<br>
+            V2 = −0.22×Amount + 0.35×MCC − 0.41×CardAge + 0.09×TimeOfDay + 0.28×Velocity + ...<br>
+            <span style="color:var(--muted)">... (weights are learned from the full training dataset)</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+              <div style="width:22px;height:22px;border-radius:50%;background:rgba(212,175,80,0.15);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--accent);flex-shrink:0;">✓</div>
+              <div style="font-size:12px;color:var(--muted);line-height:1.65;"><b style="color:var(--text)">Privacy:</b> Since each V value mixes all original features together, you cannot reverse-engineer V3 = −7.1 back to "merchant was XYZ in Delhi" — the original meaning is mathematically hidden.</div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+              <div style="width:22px;height:22px;border-radius:50%;background:rgba(80,200,160,0.12);border:1px solid rgba(80,200,160,0.2);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--violet);flex-shrink:0;">✓</div>
+              <div style="font-size:12px;color:var(--muted);line-height:1.65;"><b style="color:var(--text)">Variance ordering:</b> V1 captures the most variance (most information) in the dataset, V2 the second most, and so on. V28 captures the least. This is why V3 and V14 are such strong fraud indicators — they capture patterns that vary dramatically between fraud and legitimate transactions.</div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+              <div style="width:22px;height:22px;border-radius:50%;background:rgba(96,200,120,0.12);border:1px solid rgba(96,200,120,0.2);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--success);flex-shrink:0;">✓</div>
+              <div style="font-size:12px;color:var(--muted);line-height:1.65;"><b style="color:var(--text)">Standardised output:</b> After PCA, each component is StandardScaled to zero mean and unit variance. That is why V values are always roughly between −5 and +5 for legitimate transactions — they are Z-scores in the PCA space.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- How Smart Form approximates PCA -->
+      <div style="margin-bottom:18px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:10px;">STEP 3 — HOW FRAUDSHIELD'S SMART FORM APPROXIMATES V1–V28</div>
+        <div style="background:var(--bg3);border-radius:12px;padding:16px;border:1px solid var(--border);transition:background var(--transition);">
+          <div style="font-size:12px;color:var(--muted);line-height:1.75;margin-bottom:12px;">
+            The actual PCA weights from the ULB bank are not public — they never released the transformation matrix. So when you use the Smart Form (entering ₹ amount, merchant, time of day etc.), FraudShield uses a <b style="color:var(--text)">statistical approximation</b> based on published research about the dataset's fraud/legitimate feature distributions:
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
+            <div style="padding:9px 13px;background:var(--bg4);border-radius:8px;border:1px solid var(--border);font-size:11.5px;color:var(--muted);line-height:1.6;">
+              <b style="color:var(--text)">1. Compute Fraud Score (0–1)</b> from your inputs:
+              International location +0.25 · Late night +0.20 · Amount &gt; 10× daily avg +0.35 · New card +0.10 · 10+ txns today +0.20 · NEFT/wire transfer +0.10 · ATM/banking merchant +0.15
+            </div>
+            <div style="padding:9px 13px;background:var(--bg4);border-radius:8px;border:1px solid var(--border);font-size:11.5px;color:var(--muted);line-height:1.6;">
+              <b style="color:var(--text)">2. Interpolate between distributions</b> using the fraud score as weight:<br>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--cyan)">V3 = lerp(0, −7.03, fraudScore) + noise</span><br>
+              fraudScore=0 (completely legit) → V3≈0 · fraudScore=1 (completely fraudulent) → V3≈−7.0
+            </div>
+            <div style="padding:9px 13px;background:var(--bg4);border-radius:8px;border:1px solid var(--border);font-size:11.5px;color:var(--muted);line-height:1.6;">
+              <b style="color:var(--text)">3. Add realistic noise</b> so the generated values look like real PCA output, not perfectly uniform numbers. Each feature gets Gaussian noise proportional to the known standard deviation in the dataset.
+            </div>
+          </div>
+          <div style="padding:10px 14px;background:rgba(240,184,64,0.08);border:1px solid rgba(240,184,64,0.2);border-radius:9px;font-size:11.5px;color:var(--warn);line-height:1.6;">
+            ⚠ <b>Important:</b> This is a statistical approximation — not the real PCA transform. In a real bank deployment, the bank's own system would compute the actual V1–V28 values using their private transformation matrix and feed them directly to the /predict API. The Smart Form exists to make the demo usable by people who don't have access to raw PCA-transformed data.
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature meaning table -->
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:10px;">KEY FEATURES — WHAT THEIR VALUES INDICATE</div>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Feature</th>
+                <th>Fraud Mean</th>
+                <th>Legit Mean</th>
+                <th>Threshold</th>
+                <th>What it likely represents</th>
+                <th>Importance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--danger)">V14</td>
+                <td style="font-family:'JetBrains Mono',monospace;color:var(--danger)">−8.9</td>
+                <td style="font-family:'JetBrains Mono',monospace;color:var(--success)">≈ 0</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:11px">&lt; −6.0</td>
+                <td style="font-size:11.5px;color:var(--muted)">Likely encodes a combination of transaction velocity, amount deviation from cardholder history, and merchant risk category</td>
+                <td><span style="font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 8px;border-radius:20px;background:rgba(240,112,80,0.12);color:var(--danger);border:1px solid rgba(240,112,80,0.25)">TOP</span></td>
+              </tr>
+              <tr>
+                <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--danger)">V3</td>
+                <td style="font-family:'JetBrains Mono',monospace;color:var(--danger)">−7.0</td>
+                <td style="font-family:'JetBrains Mono',monospace;color:var(--success)">≈ 0</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:11px">&lt; −5.0</td>
+                <td style="font-size:11.5px;color:var(--muted)">Likely captures card usage pattern — time since last use, geographic distance from previous transaction, device mismatch</td>
+                <td><span style="font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 8px;border-radius:20px;background:rgba(240,112,80,0.12);color:var(--danger);border:1px solid rgba(240,112,80,0.25)">HIGH</span></td>
+              </tr>
+              <tr>
+                <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--danger)">V17</td>
+                <td style="font-family:'JetBrains Mono',monospace;color:var(--danger)">−7.2</td>
+                <td style="font-family:'JetBrains Mono',monospace;color:var(--success)">≈ 0</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:11px">&lt; −5.0</td>
+                <td style="font-size:11.5px;color:var(--muted)">Likely encodes temporal patterns — unusual hour for this cardholder, rapid sequential transactions, weekend spike</td>
+                <td><span style="font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 8px;border-radius:20px;background:rgba(240,112,80,0.12);color:var(--danger);border:1px solid rgba(240,112,80,0.25)">HIGH</span></td>
+              </tr>
+              <tr>
+                <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--danger)">V12</td>
+                <td style="font-family:'JetBrains Mono',monospace;color:var(--danger)">−5.8</td>
+                <td style="font-family:'JetBrains Mono',monospace;color:var(--success)">≈ 0</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:11px">&lt; −4.0</td>
+                <td style="font-size:11.5px;color:var(--muted)">Likely captures merchant category risk score combined with transaction size relative to merchant's typical basket size</td>
+                <td><span style="font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 8px;border-radius:20px;background:rgba(240,184,64,0.12);color:var(--warn);border:1px solid rgba(240,184,64,0.25)">MED</span></td>
+              </tr>
+              <tr>
+                <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--danger)">V4</td>
+                <td style="font-family:'JetBrains Mono',monospace;color:var(--danger)">+4.5</td>
+                <td style="font-family:'JetBrains Mono',monospace;color:var(--success)">≈ 0</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:11px">&gt; +3.0</td>
+                <td style="font-size:11.5px;color:var(--muted)">One of few features <b>positively</b> elevated in fraud — likely captures card-not-present indicators or specific merchant type combinations</td>
+                <td><span style="font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 8px;border-radius:20px;background:rgba(240,184,64,0.12);color:var(--warn);border:1px solid rgba(240,184,64,0.25)">MED</span></td>
+              </tr>
+              <tr>
+                <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--muted)">V10</td>
+                <td style="font-family:'JetBrains Mono',monospace;color:var(--danger)">−4.5</td>
+                <td style="font-family:'JetBrains Mono',monospace;color:var(--success)">≈ 0</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:11px">&lt; −3.0</td>
+                <td style="font-size:11.5px;color:var(--muted)">Likely captures billing address mismatch, CVV failure history, or cross-border transaction patterns</td>
+                <td><span style="font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 8px;border-radius:20px;background:rgba(96,200,120,0.10);color:var(--success);border:1px solid rgba(96,200,120,0.25)">LOW</span></td>
+              </tr>
+              <tr>
+                <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--accent)">Amount</td>
+                <td style="font-family:'JetBrains Mono',monospace;color:var(--warn)">€122 avg</td>
+                <td style="font-family:'JetBrains Mono',monospace;color:var(--success)">€88 avg</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:11px">&gt; 1000</td>
+                <td style="font-size:11.5px;color:var(--muted)">Actual transaction value in Euros (original scale, not PCA-transformed). Fraud transactions tend to be larger but not always — some fraudsters make small test transactions first</td>
+                <td><span style="font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 8px;border-radius:20px;background:rgba(212,175,80,0.10);color:var(--accent);border:1px solid rgba(212,175,80,0.25)">CONTEXT</span></td>
+              </tr>
+              <tr>
+                <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--accent)">Time</td>
+                <td colspan="3" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)">Seconds since first txn in dataset (0 – 172,792)</td>
+                <td style="font-size:11.5px;color:var(--muted)">Relative time counter — not a clock time. Used to detect temporal clustering of fraud (multiple frauds in short windows)</td>
+                <td><span style="font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 8px;border-radius:20px;background:rgba(212,175,80,0.10);color:var(--accent);border:1px solid rgba(212,175,80,0.25)">CONTEXT</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px;padding:10px 14px;background:var(--bg3);border-radius:9px;border:1px solid var(--border);font-size:11.5px;color:var(--muted);line-height:1.7;transition:background var(--transition);">
+          <b style="color:var(--text)">Why are the fraud means so extreme?</b> In PCA space, fraud transactions cluster far from the legitimate mass in specific directions. The PCA transform was fitted on all 284,807 transactions — legitimate ones define the "center" (mean ≈ 0). Fraud transactions, being behaviorally very different, project far from that center along certain principal components, resulting in large negative values for V3, V14, V17 and large positive values for V4.
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ══ KEY CHALLENGES ════════════════════════════════════════════════ -->
+    <div class="card">
+      <div class="info-section-title">&#x1F4A1; Key Challenges &amp; Solutions</div>
+      <div class="challenges-grid">
+        <div style="background:var(--bg3);border-radius:10px;padding:16px;border:1px solid var(--border);transition:background var(--transition)"><div style="color:var(--danger);font-size:13px;font-weight:600;margin-bottom:6px">&#x26A1; Class Imbalance</div><div style="font-size:12px;color:var(--muted);line-height:1.6">Only 0.17% of transactions are fraud. Used SMOTE on training data only + scale_pos_weight in XGBoost to handle extreme imbalance without data leakage.</div></div>
+        <div style="background:var(--bg3);border-radius:10px;padding:16px;border:1px solid var(--border);transition:background var(--transition)"><div style="color:var(--warn);font-size:13px;font-weight:600;margin-bottom:6px">&#x1F512; Feature Privacy</div><div style="font-size:12px;color:var(--muted);line-height:1.6">Real features are PCA-transformed (V1&ndash;V28) to protect cardholder privacy. Only Amount and Time are in their original scale.</div></div>
+        <div style="background:var(--bg3);border-radius:10px;padding:16px;border:1px solid var(--border);transition:background var(--transition)"><div style="color:var(--success);font-size:13px;font-weight:600;margin-bottom:6px">&#x1F4C8; Metric Choice</div><div style="font-size:12px;color:var(--muted);line-height:1.6">Accuracy is deceptive on imbalanced data. FraudShield uses F1, F2, AUC-ROC, and MCC as the real performance benchmarks.</div></div>
+      </div>
+    </div>
+
+    <!-- ══ HOW THE SYSTEM WORKS ══════════════════════════════════════════ -->
+    <div class="card" style="margin-top:16px">
+      <div class="info-section-title">&#x2699;&#xFE0F; How FraudShield Works — End to End</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:18px">
+        FraudShield processes every transaction through a 6-stage pipeline — from raw input to decision with explanation — in under 5 milliseconds.
+      </div>
+
+      <!-- Flow diagram -->
+      <div style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px;margin-bottom:22px;padding:16px;background:var(--bg3);border-radius:12px;border:1px solid var(--border);">
+        <div style="text-align:center;padding:10px 14px;background:rgba(212,175,80,0.10);border:1px solid rgba(212,175,80,0.25);border-radius:10px;min-width:90px">
+          <div style="font-size:18px;margin-bottom:4px">&#x1F4DD;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--accent);letter-spacing:1px">INPUT</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Smart Form<br>/ Raw CSV</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);padding:0 2px">&#x2192;</div>
+        <div style="text-align:center;padding:10px 14px;background:rgba(80,200,160,0.10);border:1px solid rgba(80,200,160,0.25);border-radius:10px;min-width:90px">
+          <div style="font-size:18px;margin-bottom:4px">&#x1F504;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--violet);letter-spacing:1px">CONVERT</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">30 Feature<br>Vector</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);padding:0 2px">&#x2192;</div>
+        <div style="text-align:center;padding:10px 14px;background:rgba(96,200,120,0.10);border:1px solid rgba(96,200,120,0.25);border-radius:10px;min-width:90px">
+          <div style="font-size:18px;margin-bottom:4px">&#x1F4E4;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--success);letter-spacing:1px">API CALL</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">POST<br>/predict</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);padding:0 2px">&#x2192;</div>
+        <div style="text-align:center;padding:10px 14px;background:rgba(99,179,237,0.10);border:1px solid rgba(99,179,237,0.25);border-radius:10px;min-width:90px">
+          <div style="font-size:18px;margin-bottom:4px">&#x1F9E0;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--accent);letter-spacing:1px">MODEL</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">XGBoost<br>/ RF / LR</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);padding:0 2px">&#x2192;</div>
+        <div style="text-align:center;padding:10px 14px;background:rgba(240,112,80,0.10);border:1px solid rgba(240,112,80,0.25);border-radius:10px;min-width:90px">
+          <div style="font-size:18px;margin-bottom:4px">&#x1F4CA;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--danger);letter-spacing:1px">ANALYSE</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Probability<br>+ Reasons</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);padding:0 2px">&#x2192;</div>
+        <div style="text-align:center;padding:10px 14px;background:rgba(240,184,64,0.10);border:1px solid rgba(240,184,64,0.25);border-radius:10px;min-width:90px">
+          <div style="font-size:18px;margin-bottom:4px">&#x1F514;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--warn);letter-spacing:1px">ALERT</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Notification<br>+ Decision</div>
+        </div>
+      </div>
+
+      <!-- Stage descriptions -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="background:var(--bg3);border-radius:10px;padding:14px 16px;border:1px solid var(--border);border-left:3px solid var(--accent);transition:background var(--transition)">
+          <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:5px">Stage 1 — User Input</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.7">
+            The user enters transaction details through one of three modes: <b style="color:var(--text)">Smart Form</b> (human-readable — amount in ₹, merchant type, card type, time, location, etc.), <b style="color:var(--text)">Raw CSV String</b> (the 30 PCA values directly), or <b style="color:var(--text)">Individual Fields</b> (each V1–V28, Amount, Time field separately). The Smart Form is the most user-friendly — no knowledge of PCA required.
+          </div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:14px 16px;border:1px solid var(--border);border-left:3px solid var(--violet);transition:background var(--transition)">
+          <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:5px">Stage 2 — Feature Conversion (Smart Form only)</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.7">
+            The Smart Form inputs are converted into a 30-dimensional feature vector using a statistical mapping. Each dropdown selection contributes to a <b style="color:var(--text)">fraud risk score (0–1)</b> based on known fraud patterns from the ULB dataset. This score then interpolates between the legitimate feature distribution (all V values near 0) and the fraud feature distribution (V3≈−7, V14≈−9, etc.). The result is a realistic approximation of what the PCA feature vector would look like for that type of transaction.
+          </div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:14px 16px;border:1px solid var(--border);border-left:3px solid var(--success);transition:background var(--transition)">
+          <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:5px">Stage 3 — API Call to Flask Backend</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.7">
+            The 30-feature array is sent as a JSON POST request to <code style="font-family:'JetBrains Mono',monospace;background:var(--bg4);padding:1px 5px;border-radius:4px">http://127.0.0.1:5000/predict</code>. The request body contains the features array and the selected model name (<code style="font-family:'JetBrains Mono',monospace;background:var(--bg4);padding:1px 5px;border-radius:4px">"xgboost"</code>, <code style="font-family:'JetBrains Mono',monospace;background:var(--bg4);padding:1px 5px;border-radius:4px">"rf"</code>, or <code style="font-family:'JetBrains Mono',monospace;background:var(--bg4);padding:1px 5px;border-radius:4px">"logistic"</code>). Flask receives it, validates the 30 features, and routes to the correct model.
+          </div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:14px 16px;border:1px solid var(--border);border-left:3px solid var(--cyan);transition:background var(--transition)">
+          <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:5px">Stage 4 — Model Inference</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.7">
+            The selected model runs <code style="font-family:'JetBrains Mono',monospace;background:var(--bg4);padding:1px 5px;border-radius:4px">predict_proba(features)</code> and returns the probability of fraud (class 1). For Logistic Regression, the features are first scaled using the saved <code style="font-family:'JetBrains Mono',monospace;background:var(--bg4);padding:1px 5px;border-radius:4px">lr_scaler.pkl</code>, and a precision-recall tuned threshold (not the default 0.5) is used for the final decision. XGBoost and Random Forest use the raw features and standard 0.5 threshold.
+          </div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:14px 16px;border:1px solid var(--border);border-left:3px solid var(--danger);transition:background var(--transition)">
+          <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:5px">Stage 5 — Reason Generation</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.7">
+            The <code style="font-family:'JetBrains Mono',monospace;background:var(--bg4);padding:1px 5px;border-radius:4px">generate_reasons()</code> function in post.py analyses the actual feature values against known fraud/legitimate distribution means. It checks V3, V4, V9, V10, V11, V12, V14, V17, and Amount against thresholds derived from published ULB dataset research, counts how many fraud signals are present, and produces: a one-line verdict, a list of 3–5 specific factor explanations, the triggered feature names, and a full summary paragraph.
+          </div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:14px 16px;border:1px solid var(--border);border-left:3px solid var(--warn);transition:background var(--transition)">
+          <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:5px">Stage 6 — Display &amp; Alert</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.7">
+            The response is displayed in the result card with the prediction label (Fraud / Not Fraud), risk probability bar, risk level (High/Medium/Low), confidence %, and the full "Why This Decision" explanation box. If fraud is detected, the notification bell animates, a fraud alert card is pushed to the panel with a reason preview, and the full detail modal (accessible by clicking) shows all 30 features, key fraud signal bars, and the complete explanation.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ V1-V28 EXPLAINED ═══════════════════════════════════════════════ -->
+    <div class="card" style="margin-top:16px">
+      <div class="info-section-title">&#x1F9EE; What Are V1–V28, Amount &amp; Time? How Are They Calculated?</div>
+
+      <div style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:20px">
+        This is the most common question. The answer requires understanding what the bank originally collected, and what they chose to share publicly.
+      </div>
+
+      <!-- Original features box -->
+      <div style="background:rgba(212,175,80,0.07);border:1px solid rgba(212,175,80,0.22);border-radius:12px;padding:16px 18px;margin-bottom:16px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--accent);letter-spacing:2px;margin-bottom:10px;">WHAT THE BANK ACTUALLY COLLECTED (ORIGINAL FEATURES)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+          <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--border);font-size:11.5px;color:var(--muted);line-height:1.6;transition:background var(--transition)">&#x1F4CD; Transaction location &amp; merchant category</div>
+          <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--border);font-size:11.5px;color:var(--muted);line-height:1.6;transition:background var(--transition)">&#x1F4B3; Card type, age &amp; spending history</div>
+          <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--border);font-size:11.5px;color:var(--muted);line-height:1.6;transition:background var(--transition)">&#x23F0; Time of day &amp; velocity of recent transactions</div>
+          <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--border);font-size:11.5px;color:var(--muted);line-height:1.6;transition:background var(--transition)">&#x1F4F1; Device fingerprint &amp; IP geolocation</div>
+          <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--border);font-size:11.5px;color:var(--muted);line-height:1.6;transition:background var(--transition)">&#x1F30D; Country of transaction vs. card country</div>
+          <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--border);font-size:11.5px;color:var(--muted);line-height:1.6;transition:background var(--transition)">&#x1F4B0; Average spend pattern &amp; anomaly score</div>
+        </div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.6">
+          These are the real transaction features the bank used — but they are <b style="color:var(--warn)">confidential</b>. Publishing them would allow fraudsters to engineer transactions to evade detection, and would violate cardholder privacy.
+        </div>
+      </div>
+
+      <!-- PCA explanation -->
+      <div style="background:var(--bg3);border-radius:12px;padding:16px 18px;margin-bottom:16px;border:1px solid var(--border);transition:background var(--transition)">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--violet);letter-spacing:2px;margin-bottom:12px;">HOW V1–V28 ARE CALCULATED (PCA TRANSFORMATION)</div>
+
+        <div style="font-size:12.5px;color:var(--muted);line-height:1.8;margin-bottom:14px">
+          The bank applied <b style="color:var(--text)">Principal Component Analysis (PCA)</b> to all the original features before publishing the dataset. PCA is a mathematical transformation that:
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+          <div style="display:flex;gap:10px;align-items:flex-start;font-size:12px;color:var(--muted);line-height:1.6">
+            <span style="background:rgba(80,200,160,0.15);color:var(--violet);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:11px">1</span>
+            <span><b style="color:var(--text)">Takes all original features</b> (location, card type, velocity, device, etc.) and finds the directions of maximum variance in the data — essentially the most "informative" combinations of the original features.</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start;font-size:12px;color:var(--muted);line-height:1.6">
+            <span style="background:rgba(80,200,160,0.15);color:var(--violet);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:11px">2</span>
+            <span><b style="color:var(--text)">Projects every transaction</b> onto 28 of these "principal component" directions. Each resulting number (V1, V2… V28) is a weighted combination of all the original features — not a single original feature.</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start;font-size:12px;color:var(--muted);line-height:1.6">
+            <span style="background:rgba(80,200,160,0.15);color:var(--violet);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:11px">3</span>
+            <span><b style="color:var(--text)">Anonymises the data</b> — you cannot reverse the PCA to recover the original feature values without the original PCA matrix (which the bank keeps private). V14 = −9.2 tells you nothing about what specific transaction detail caused it.</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start;font-size:12px;color:var(--muted);line-height:1.6">
+            <span style="background:rgba(80,200,160,0.15);color:var(--violet);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:11px">4</span>
+            <span><b style="color:var(--text)">Preserves fraud detection power</b> — even though the features are anonymised, the ML models can still find patterns because fraud transactions cluster in specific regions of this transformed space.</span>
+          </div>
+        </div>
+
+        <!-- PCA formula visual -->
+        <div style="background:var(--bg4);border-radius:10px;padding:12px 16px;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);line-height:2;">
+          <div style="color:var(--accent);font-size:9px;letter-spacing:1.5px;margin-bottom:6px">CONCEPTUAL FORMULA</div>
+          <div>V1 = w₁₁×(merchant_cat) + w₁₂×(location) + w₁₃×(velocity) + w₁₄×(card_age) + …</div>
+          <div>V2 = w₂₁×(merchant_cat) + w₂₂×(location) + w₂₃×(velocity) + w₂₄×(card_age) + …</div>
+          <div style="color:var(--muted2)">⋮</div>
+          <div>V28 = w₂₈₁×(merchant_cat) + w₂₈₂×(location) + … + w₂₈ₙ×(feature_n)</div>
+          <div style="margin-top:8px;font-size:10px;color:var(--muted2)">where w values are the PCA eigenvectors — kept secret by the bank</div>
+        </div>
+      </div>
+
+      <!-- Amount and Time -->
+      <div style="background:var(--bg3);border-radius:12px;padding:16px 18px;margin-bottom:16px;border:1px solid var(--border);transition:background var(--transition)">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--warn);letter-spacing:2px;margin-bottom:12px;">AMOUNT AND TIME — THE ONLY ORIGINAL FEATURES</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">Amount</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.7">The actual transaction value in <b style="color:var(--text)">Euros</b> (the dataset is from European cardholders). It is kept in its original scale. In FraudShield's Smart Form, this maps to <b style="color:var(--text)">Indian Rupees (₹)</b> for local context, and the entered amount is used directly as the Amount feature. Fraud transactions often have unusually high amounts for the cardholder's normal pattern.</div>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">Time</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.7">NOT a clock time. It is the <b style="color:var(--text)">number of seconds elapsed since the first transaction in the dataset</b>. The dataset spans 2 days (172,792 seconds). A Time value of 86,400 means this transaction happened ~1 day after the dataset began. It helps capture time-of-day fraud patterns — late-night transactions correlate with higher fraud rates.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- How Smart Form converts -->
+      <div style="background:rgba(96,200,120,0.05);border:1px solid rgba(96,200,120,0.25);border-radius:12px;padding:16px 18px;margin-bottom:16px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--success);letter-spacing:2px;margin-bottom:12px;">HOW FRAUDSHIELD CONVERTS YOUR ₹ INPUTS TO V1–V28</div>
+        <div style="font-size:12.5px;color:var(--muted);line-height:1.8;margin-bottom:14px">
+          Since the real PCA matrix is private, FraudShield's Smart Form uses a <b style="color:var(--text)">statistical approximation</b> based on published ULB dataset research. Here's exactly what happens when you fill the Smart Form:
+        </div>
+        <div style="display:flex;flex-direction:column;gap:7px;">
+          <div style="background:var(--bg3);border-radius:8px;padding:10px 14px;border:1px solid var(--border);font-size:12px;color:var(--muted);line-height:1.6;transition:background var(--transition)">
+            <b style="color:var(--text)">Step 1 — Compute fraud risk score (0 to 1):</b> Each form field contributes to a risk score based on known fraud patterns. Late night → +0.20, International location → +0.25, Amount 10× above daily average → +0.35, New card → +0.10, 10+ transactions today → +0.20, NEFT/Wire transfer → +0.10. These weights come from the fraud signal distributions in the ULB paper. The score is clamped to [0, 1].
+          </div>
+          <div style="background:var(--bg3);border-radius:8px;padding:10px 14px;border:1px solid var(--border);font-size:12px;color:var(--muted);line-height:1.6;transition:background var(--transition)">
+            <b style="color:var(--text)">Step 2 — Interpolate between distributions:</b> For each V feature, we know the legitimate mean (~0) and the fraud mean (e.g., V3 fraud mean = −7.0). Each feature value is calculated as: <code style="font-family:'JetBrains Mono',monospace;background:var(--bg4);padding:1px 5px;border-radius:4px">V_value = legitimate_mean + fraud_score × (fraud_mean − legitimate_mean) + noise</code>. A fraud score of 0 produces all-zero features (clean). A fraud score of 1 produces the full fraud pattern (V3≈−7, V14≈−9, etc.). Intermediate scores blend proportionally.
+          </div>
+          <div style="background:var(--bg3);border-radius:8px;padding:10px 14px;border:1px solid var(--border);font-size:12px;color:var(--muted);line-height:1.6;transition:background var(--transition)">
+            <b style="color:var(--text)">Step 3 — Amount and Time:</b> Amount is taken directly from your ₹ input (the model was trained on Euros, but since all features are normalised inside the model, the currency scale does not significantly affect results for demo purposes). Time is randomised in the valid dataset range (0–172,792 seconds).
+          </div>
+          <div style="background:var(--bg3);border-radius:8px;padding:10px 14px;border:1px solid var(--border);font-size:12px;color:var(--muted);line-height:1.6;transition:background var(--transition)">
+            <b style="color:var(--text)">Step 4 — Send to model:</b> The resulting 30 values [V1…V28, Amount, Time] are sent to the Flask API exactly as if you had typed them in the Raw CSV tab. The model has no knowledge of how they were generated — it just sees 30 numbers and makes its decision.
+          </div>
+          <div style="background:rgba(240,184,64,0.08);border-radius:8px;padding:10px 14px;border:1px solid rgba(240,184,64,0.25);font-size:12px;color:var(--muted);line-height:1.6;">
+            <b style="color:var(--warn)">&#x26A0; Important note:</b> This is a <b style="color:var(--text)">statistical approximation</b>, not the real PCA transform. In a real bank deployment, the system would receive the actual PCA-transformed values directly from the transaction processing system — no conversion needed. The Smart Form demonstrates the concept for educational and demo purposes.
+          </div>
+        </div>
+      </div>
+
+      <!-- Key feature meanings table -->
+      <div style="background:var(--bg3);border-radius:12px;padding:16px 18px;border:1px solid var(--border);transition:background var(--transition)">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--danger);letter-spacing:2px;margin-bottom:12px;">KEY V FEATURES — WHAT THEY LIKELY REPRESENT &amp; FRAUD THRESHOLDS</div>
+        <div style="overflow-x:auto">
+          <table class="data-table" style="font-size:11.5px">
+            <thead>
+              <tr>
+                <th style="text-align:left">Feature</th>
+                <th>Legit Mean</th>
+                <th>Fraud Mean</th>
+                <th>Fraud Threshold</th>
+                <th>Likely Represents</th>
+                <th>Importance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--danger)">V14</td><td style="text-align:center;font-family:'JetBrains Mono',monospace">~0</td><td style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--danger)">−8.9</td><td style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--danger)">&lt; −6.0</td><td style="color:var(--muted)">Combination of location anomaly + velocity pattern</td><td style="text-align:center"><span style="background:rgba(240,112,80,0.15);color:var(--danger);border:1px solid rgba(240,112,80,0.3);padding:2px 8px;border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:9px">TOP</span></td></tr>
+              <tr><td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--danger)">V3</td><td style="text-align:center;font-family:'JetBrains Mono',monospace">~0</td><td style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--danger)">−7.0</td><td style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--danger)">&lt; −5.0</td><td style="color:var(--muted)">Transaction time pattern relative to card history</td><td style="text-align:center"><span style="background:rgba(240,112,80,0.15);color:var(--danger);border:1px solid rgba(240,112,80,0.3);padding:2px 8px;border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:9px">HIGH</span></td></tr>
+              <tr><td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--danger)">V17</td><td style="text-align:center;font-family:'JetBrains Mono',monospace">~0</td><td style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--danger)">−7.2</td><td style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--danger)">&lt; −5.0</td><td style="color:var(--muted)">Merchant category anomaly vs. spending history</td><td style="text-align:center"><span style="background:rgba(240,112,80,0.15);color:var(--danger);border:1px solid rgba(240,112,80,0.3);padding:2px 8px;border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:9px">HIGH</span></td></tr>
+              <tr><td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--warn)">V12</td><td style="text-align:center;font-family:'JetBrains Mono',monospace">~0</td><td style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--warn)">−5.8</td><td style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--warn)">&lt; −4.0</td><td style="color:var(--muted)">Geographic distance from usual transaction zones</td><td style="text-align:center"><span style="background:rgba(240,184,64,0.15);color:var(--warn);border:1px solid rgba(240,184,64,0.3);padding:2px 8px;border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:9px">MED</span></td></tr>
+              <tr><td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--warn)">V10</td><td style="text-align:center;font-family:'JetBrains Mono',monospace">~0</td><td style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--warn)">−4.5</td><td style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--warn)">&lt; −3.0</td><td style="color:var(--muted)">Velocity of transactions in recent time window</td><td style="text-align:center"><span style="background:rgba(240,184,64,0.15);color:var(--warn);border:1px solid rgba(240,184,64,0.3);padding:2px 8px;border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:9px">MED</span></td></tr>
+              <tr><td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--warn)">V4</td><td style="text-align:center;font-family:'JetBrains Mono',monospace">~0</td><td style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--warn)">+4.5</td><td style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--warn)">&gt; +3.0</td><td style="color:var(--muted)">Card-not-present indicator combined with amount spike</td><td style="text-align:center"><span style="background:rgba(240,184,64,0.15);color:var(--warn);border:1px solid rgba(240,184,64,0.3);padding:2px 8px;border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:9px">MED</span></td></tr>
+              <tr><td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--muted)">V11</td><td style="text-align:center;font-family:'JetBrains Mono',monospace">~0</td><td style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--muted)">+2.1</td><td style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--muted)">&gt; +1.5</td><td style="color:var(--muted)">Unusual terminal type or transaction channel</td><td style="text-align:center"><span style="background:rgba(113,128,150,0.12);color:var(--muted);border:1px solid var(--border);padding:2px 8px;border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:9px">LOW</span></td></tr>
+              <tr><td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--accent)">Amount</td><td style="text-align:center;font-family:'JetBrains Mono',monospace">€88 avg</td><td style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--accent)">€122 avg</td><td style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--accent)">&gt; 1000</td><td style="color:var(--muted)">Transaction value in Euros (original, not PCA)</td><td style="text-align:center"><span style="background:rgba(212,175,80,0.12);color:var(--accent);border:1px solid rgba(212,175,80,0.25);padding:2px 8px;border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:9px">CTX</span></td></tr>
+              <tr><td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--muted)">V1–V2<br>V5–V9<br>V13–V16<br>V18–V28</td><td style="text-align:center;font-family:'JetBrains Mono',monospace">~0</td><td style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--muted)">near 0</td><td style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--muted)">varies</td><td style="color:var(--muted)">Other anonymised dimensions — lower discriminating power individually but contribute to the overall pattern</td><td style="text-align:center"><span style="background:rgba(113,128,150,0.12);color:var(--muted);border:1px solid var(--border);padding:2px 8px;border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:9px">LOW</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--muted2);font-family:'JetBrains Mono',monospace;letter-spacing:0.5px">
+          * "Likely Represents" is inferred from ULB dataset research papers — the actual feature meanings are kept confidential by the bank.
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end page-about -->
+
 </main>
 
 <script>
